@@ -142,8 +142,11 @@ govjob-v2/
 │   ├── v1_jobs.json              # v1 원본 데이터 (참조용)
 │   ├── sources.example.txt       # 수집 소스 예시 → sources.txt로 복사해서 사용
 │   └── requirements.txt          # Python 패키지
-├── .claude/commands/
-│   └── add-job.md                # /add-job 슬래시 커맨드 정의
+├── .claude/
+│   ├── commands/
+│   │   └── add-job.md            # /add-job 슬래시 커맨드 (URL 파싱 + AI 적합도 평가)
+│   └── profile/
+│       └── user.md               # 직무적합도 평가 프로필 (경력·자격·선호 지역·회피 산업 등)
 ├── .github/workflows/
 │   └── daily-discover.yml        # 매일 09:00 KST 자동 URL 수집
 ├── supabase-schema.sql           # DB 초기화 SQL
@@ -158,8 +161,10 @@ govjob-v2/
 ```
 /add-job https://채용공고URL
 ```
-Claude Code가 URL 내용을 읽고 → 정보 추출 → Supabase에 바로 저장.
+Claude Code가 URL 내용을 읽고 → 정보 추출 → `.claude/profile/user.md` 기반 **AI 적합도 평가** → Supabase에 저장.
 별도 API 키 불필요. `govjob-v2` 폴더에서 Claude Code 실행 중일 때 사용 가능.
+
+**적합도 평가 프로필 수정**: `.claude/profile/user.md` 파일을 편집하면 다음 `/add-job` 실행부터 새 기준이 자동 적용됩니다.
 
 ### 2. 웹 UI에서 공고 추가
 대시보드 우상단 **"+ 공고 추가"** → URL 입력 → "가져오기" → 정보 확인 후 저장.
