@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 const TODAY = new Date().setHours(0, 0, 0, 0);
 
+// v1 Oa 색상 맵 (fit 점수별 왼쪽 보더 색)
 const FIT_BORDER: Record<number, string> = {
   5: "#48BB78",
   4: "#4299E1",
@@ -17,37 +18,121 @@ const FIT_BORDER: Record<number, string> = {
   0: "#E2E8F0",
 };
 
+// v1 정확한 hex 색상
+const COLORS = {
+  passBg: "#D6F5E8",
+  passText: "#0E6644",
+  failBg: "#FDDCDC",
+  failText: "#A32D2D",
+  star: "#BA7517",
+  starEmpty: "#E2E8F0",
+  cardBorder: "#E2E8F0",
+  headerBg: "#F7FAFC",
+  headerText: "#718096",
+  bodyText: "#374151",
+  metaText: "#6B7280",
+  // 마감일 pill
+  ongoing: { bg: "#E1F5EE", col: "#085041" },       // 상시
+  undecided: { bg: "#F1EFE8", col: "#5F5E5A" },      // 미정
+  closed: { bg: "#F1EFE8", col: "#777770" },         // 마감
+  urgent: { bg: "#FCEBEB", col: "#A32D2D" },         // D-3 이내 / 오늘
+  soon: { bg: "#FFF3E0", col: "#B45309" },           // D-4~7
+  distant: { bg: "#F1EFE8", col: "#5F5E5A" },        // D-8 이상
+};
+
 const PASS_STATUSES = new Set<JobStatus>(["doc_pass", "written_pass", "interview_pass", "final_pass"]);
 const FAIL_STATUSES = new Set<JobStatus>(["doc_fail", "written_fail", "interview_fail"]);
+const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
 
+// v1 style 별점
 function FitStars({ fit, reason }: { fit: number | null; reason: string | null }) {
   const n = fit ?? 0;
-  if (n === 0) return <span className="text-gray-300 text-xs">-</span>;
+  if (n === 0) return <span className="text-xs" style={{ color: "#A0AEC0" }}>-</span>;
   return (
     <span
       title={reason ?? ""}
-      className="cursor-help text-amber-600 tracking-tight text-sm leading-none"
-      style={{ letterSpacing: -1 }}
+      style={{
+        color: COLORS.star,
+        letterSpacing: -1,
+        fontSize: 15,
+        cursor: "help",
+        whiteSpace: "nowrap",
+      }}
     >
-      {"★".repeat(n)}{"☆".repeat(5 - n)}
+      {"★".repeat(n)}
+      <span style={{ color: COLORS.starEmpty }}>{"☆".repeat(5 - n)}</span>
     </span>
   );
 }
 
-function fmt(d: string | null) {
-  if (!d) return <span className="text-gray-300">-</span>;
-  const dt = new Date(d);
-  return <span>{dt.getMonth() + 1}/{dt.getDate()}</span>;
+// v1 style pill: 마감일/다음 관문 등에 사용
+function DeadlinePill({
+  date,
+  status,
+  compact,
+}: {
+  date: string | null;
+  status?: JobStatus;
+  compact?: boolean;
+}) {
+  const pad = compact ? "px-1.5 py-[1px]" : "px-2 py-0.5";
+  const cls = `inline-block ${pad} rounded text-[10px] font-medium whitespace-nowrap`;
+
+  if (!date) {
+    if (status && WATCHING_STATUSES.has(status)) {
+      return <span className={cls} style={{ background: COLORS.ongoing.bg, color: COLORS.ongoing.col }}>상시</span>;
+    }
+    return <span className={cls} style={{ background: COLORS.undecided.bg, color: COLORS.undecided.col }}>미정</span>;
+  }
+
+  const dt = new Date(date);
+  const diff = Math.ceil((dt.getTime() - TODAY) / 86_400_000);
+  const mm = dt.getMonth() + 1;
+  const dd = dt.getDate();
+  const mmdd = `${mm}/${dd}`;
+
+  if (diff < 0)  return <span className={cls} style={{ background: COLORS.closed.bg, color: COLORS.closed.col }}>마감 ({mmdd})</span>;
+  if (diff === 0) return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>오늘 ({mmdd})</span>;
+  if (diff <= 3)  return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>D-{diff} · {mmdd}</span>;
+  if (diff <= 7)  return <span className={cls} style={{ background: COLORS.soon.bg, color: COLORS.soon.col }}>D-{diff} · {mmdd}</span>;
+  return <span className={cls} style={{ background: COLORS.distant.bg, color: COLORS.distant.col }}>D-{diff} · {mmdd}</span>;
 }
 
-function DDay({ date }: { date: string | null }) {
-  if (!date) return null;
-  const diff = Math.ceil((new Date(date).getTime() - TODAY) / 86_400_000);
-  if (diff < 0)  return <span className="text-gray-400 text-[10px]">마감</span>;
-  if (diff === 0) return <span className="text-red-600 font-bold text-[10px]">D-day</span>;
-  if (diff <= 3)  return <span className="text-red-500 font-bold text-[10px]">D-{diff}</span>;
-  if (diff <= 7)  return <span className="text-orange-500 text-[10px]">D-{diff}</span>;
-  return <span className="text-gray-400 text-[10px]">D-{diff}</span>;
+// 다른 일정 컬럼용 간단 표기
+function fmtDate(d: string | null, textColor?: string) {
+  if (!d) return <span style={{ color: "#CBD5E0" }}>-</span>;
+  const dt = new Date(d);
+  return <span style={{ color: textColor ?? COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
+}
+
+// v1 nextDate 로직을 v2 상태값에 맞게 이식
+function nextMilestone(job: Job): { label: string; date: string } | null {
+  const s = job.status;
+  const { doc_announcement_date: da, written_exam_date: w, interview_date: i1, interview_date_2: i2, announcement_date: a, application_end: ae } = job;
+
+  if (s === "applied") {
+    if (da) return { label: "서류발표", date: da };
+    if (w)  return { label: "필기", date: w };
+    if (a)  return { label: "발표", date: a };
+  }
+  if (s === "doc_pass" || s === "written_wait") {
+    if (w)  return { label: "필기", date: w };
+    if (i1) return { label: "면접1차", date: i1 };
+    if (a)  return { label: "발표", date: a };
+  }
+  if (s === "written_pass" || s === "interview_wait") {
+    if (i1) return { label: "면접1차", date: i1 };
+    if (i2) return { label: "면접2차", date: i2 };
+    if (a)  return { label: "발표", date: a };
+  }
+  if (s === "interview_pass") {
+    if (i2) return { label: "면접2차", date: i2 };
+    if (a)  return { label: "최종발표", date: a };
+  }
+  if (s === "collected" || s === "monitoring" || s === "check_needed" || s === "available") {
+    if (ae) return { label: "서류마감", date: ae };
+  }
+  return null;
 }
 
 interface Props {
@@ -61,34 +146,43 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
 
   const isPass = PASS_STATUSES.has(status);
   const isFail = FAIL_STATUSES.has(status);
-  const borderColor = FIT_BORDER[job.fit ?? 0] ?? "#E2E8F0";
+  const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
 
-  const rowCls = isPass
-    ? "border-b border-gray-100 transition-colors group bg-emerald-50/60 hover:bg-emerald-50"
+  const rowStyle: React.CSSProperties = isPass
+    ? { background: COLORS.passBg, color: COLORS.passText }
     : isFail
-    ? "border-b border-gray-100 transition-colors group bg-red-50/50 hover:bg-red-50 opacity-70"
-    : "border-b border-gray-100 hover:bg-indigo-50/40 transition-colors group";
+    ? { background: COLORS.failBg, color: COLORS.failText, opacity: 0.65 }
+    : {};
+  const hoverCls = !isPass && !isFail ? "hover:bg-indigo-50/40" : "";
+  const textColor = isPass ? COLORS.passText : isFail ? COLORS.failText : undefined;
+  const dateTextColor = textColor ?? COLORS.metaText;
+
+  const next = nextMilestone(job);
 
   async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
-    const next = e.target.value as JobStatus;
+    const nextStatus = e.target.value as JobStatus;
     setSaving(true);
-    const { error } = await supabase.from("jobs").update({ status: next }).eq("id", job.id);
+    const { error } = await supabase.from("jobs").update({ status: nextStatus }).eq("id", job.id);
     if (!error) {
-      setStatus(next);
-      onStatusChange?.(job.id, next);
+      setStatus(nextStatus);
+      onStatusChange?.(job.id, nextStatus);
     }
     setSaving(false);
   }
 
   return (
-    <tr className={rowCls}>
-      {/* 기관명 — 왼쪽 보더로 적합도 색 표시 */}
-      <td
-        className="py-2.5 pl-3 pr-2 whitespace-nowrap"
-        style={{ borderLeft: `4px solid ${borderColor}` }}
-      >
-        <Link href={`/jobs/${job.id}`} className="text-xs font-medium text-gray-700 hover:text-indigo-600 group-hover:underline">
+    <tr
+      className={`border-b transition-colors group ${hoverCls}`}
+      style={{ ...rowStyle, borderColor: "#EDF2F7" }}
+    >
+      {/* 기관명 - 왼쪽 보더로 적합도 색 표시 */}
+      <td className="py-2.5 pl-3 pr-2 whitespace-nowrap" style={{ borderLeft: `4px solid ${borderColor}` }}>
+        <Link
+          href={`/jobs/${job.id}`}
+          className="text-xs font-medium hover:underline"
+          style={{ color: textColor ?? COLORS.bodyText }}
+        >
           {job.organization ?? "-"}
         </Link>
       </td>
@@ -100,44 +194,50 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
 
       {/* 직무 */}
       <td className="py-2.5 px-2 whitespace-nowrap">
-        <span className="text-xs text-gray-600">{job.duty ?? "-"}</span>
+        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.duty ?? "-"}</span>
+      </td>
+
+      {/* 유형 */}
+      <td className="py-2.5 px-2 whitespace-nowrap">
+        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.employment_type ?? "-"}</span>
       </td>
 
       {/* 지역 */}
       <td className="py-2.5 px-2 whitespace-nowrap">
-        <span className="text-xs text-gray-600">{job.work_location ?? "-"}</span>
+        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.work_location ?? "-"}</span>
       </td>
 
-      {/* 서류마감 */}
+      {/* 다음 관문 */}
       <td className="py-2.5 px-2 text-center whitespace-nowrap">
-        <div className="text-xs text-gray-700">{fmt(job.application_end)}</div>
-        <DDay date={job.application_end} />
+        {next ? (
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[10px] font-semibold" style={{ color: textColor ?? "#4A5568" }}>{next.label}</span>
+            <DeadlinePill date={next.date} status={status} compact />
+          </div>
+        ) : (
+          <span style={{ color: "#CBD5E0" }} className="text-xs">-</span>
+        )}
+      </td>
+
+      {/* 서류마감 (pill) */}
+      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+        <DeadlinePill date={job.application_end} status={status} compact />
       </td>
 
       {/* 서류발표 */}
-      <td className="py-2.5 px-2 text-center text-xs text-gray-600 whitespace-nowrap">
-        {fmt(job.doc_announcement_date)}
-      </td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.doc_announcement_date, dateTextColor)}</td>
 
       {/* 필기 */}
-      <td className="py-2.5 px-2 text-center text-xs text-gray-600 whitespace-nowrap">
-        {fmt(job.written_exam_date)}
-      </td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.written_exam_date, dateTextColor)}</td>
 
       {/* 면접1 */}
-      <td className="py-2.5 px-2 text-center text-xs text-gray-600 whitespace-nowrap">
-        {fmt(job.interview_date)}
-      </td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.interview_date, dateTextColor)}</td>
 
       {/* 면접2 */}
-      <td className="py-2.5 px-2 text-center text-xs text-gray-600 whitespace-nowrap">
-        {fmt(job.interview_date_2)}
-      </td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.interview_date_2, dateTextColor)}</td>
 
       {/* 최종발표 */}
-      <td className="py-2.5 px-2 text-center text-xs text-gray-600 whitespace-nowrap">
-        {fmt(job.announcement_date)}
-      </td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.announcement_date, dateTextColor)}</td>
 
       {/* 상태 드롭다운 */}
       <td className="py-2.5 pl-2 pr-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -160,28 +260,37 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
 
 export default function JobTable({ jobs, onStatusChange }: Props) {
   const headers = [
-    { label: "기관명",   cls: "pl-3 pr-2 text-left" },
-    { label: "적합도",   cls: "px-2 text-center" },
-    { label: "직무",    cls: "px-2 text-left" },
-    { label: "지역",    cls: "px-2 text-left" },
-    { label: "서류마감", cls: "px-2 text-center" },
-    { label: "서류발표", cls: "px-2 text-center" },
-    { label: "필기",    cls: "px-2 text-center" },
-    { label: "면접1차", cls: "px-2 text-center" },
-    { label: "면접2차", cls: "px-2 text-center" },
-    { label: "최종발표", cls: "px-2 text-center" },
-    { label: "상태",    cls: "pl-2 pr-3 text-left" },
+    { label: "기관명",     cls: "pl-3 pr-2 text-left" },
+    { label: "적합도",     cls: "px-2 text-center" },
+    { label: "직무",       cls: "px-2 text-left" },
+    { label: "유형",       cls: "px-2 text-left" },
+    { label: "지역",       cls: "px-2 text-left" },
+    { label: "다음 관문",  cls: "px-2 text-center" },
+    { label: "서류마감",   cls: "px-2 text-center" },
+    { label: "서류발표",   cls: "px-2 text-center" },
+    { label: "필기",       cls: "px-2 text-center" },
+    { label: "면접1차",    cls: "px-2 text-center" },
+    { label: "면접2차",    cls: "px-2 text-center" },
+    { label: "최종발표",   cls: "px-2 text-center" },
+    { label: "상태",       cls: "pl-2 pr-3 text-left" },
   ];
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-      <table className="w-full min-w-[900px]">
+    <div
+      className="overflow-x-auto rounded-xl bg-white"
+      style={{
+        border: `1px solid ${COLORS.cardBorder}`,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+      }}
+    >
+      <table className="w-full min-w-[1100px]">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
+          <tr style={{ background: COLORS.headerBg, borderBottom: `1px solid ${COLORS.cardBorder}` }}>
             {headers.map((h) => (
               <th
                 key={h.label}
-                className={`py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h.cls}`}
+                className={`py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls}`}
+                style={{ color: COLORS.headerText }}
               >
                 {h.label}
               </th>
