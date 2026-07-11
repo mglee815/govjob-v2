@@ -5,6 +5,23 @@ import { supabase } from "@/lib/supabase";
 import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
 import JobCard from "@/components/JobCard";
 
+// KPI 카드: 진행 중인 단계만 (최종합격 제외)
+const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
+
+const KPI_COLORS: Record<string, string> = {
+  applied:        "border-indigo-200 hover:border-indigo-400",
+  doc_pass:       "border-yellow-200 hover:border-yellow-400",
+  written_pass:   "border-orange-200 hover:border-orange-400",
+  interview_pass: "border-purple-200 hover:border-purple-400",
+};
+
+const KPI_NUMBER_COLORS: Record<string, string> = {
+  applied:        "text-indigo-600",
+  doc_pass:       "text-yellow-600",
+  written_pass:   "text-orange-600",
+  interview_pass: "text-purple-600",
+};
+
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "전체", value: "all" },
   { label: "관심", value: "bookmarked" },
@@ -46,6 +63,10 @@ export default function Home() {
     fetchJobs();
   }, [sort]);
 
+  function handleStatusChange(id: string, status: JobStatus) {
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status } : j)));
+  }
+
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
 
   const stats: Record<string, number> = {};
@@ -55,13 +76,19 @@ export default function Home() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-6">
-      {/* 요약 통계 */}
+      {/* KPI 카드 — 클릭하면 해당 상태로 필터 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {(["applied", "doc_pass", "interview_pass", "final_pass"] as JobStatus[]).map((s) => (
-          <div key={s} className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-indigo-600">{stats[s] ?? 0}</p>
+        {KPI_STATUSES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(filter === s ? "all" : s)}
+            className={`bg-white border-2 rounded-xl p-4 text-center transition-all ${KPI_COLORS[s]} ${
+              filter === s ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
+            }`}
+          >
+            <p className={`text-2xl font-bold ${KPI_NUMBER_COLORS[s]}`}>{stats[s] ?? 0}</p>
             <p className="text-xs text-gray-500 mt-1">{STATUS_LABELS[s]}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -113,7 +140,7 @@ export default function Home() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((job) => (
-            <JobCard key={job.id} job={job} />
+            <JobCard key={job.id} job={job} onStatusChange={handleStatusChange} />
           ))}
         </div>
       )}

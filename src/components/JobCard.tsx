@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Job } from "@/lib/types";
-import StatusBadge from "./StatusBadge";
+import { useState } from "react";
+import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
+
+const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -20,18 +23,42 @@ function DeadlineBadge({ date }: { date: string | null }) {
   return <span className="text-xs text-gray-500">D-{days}</span>;
 }
 
-export default function JobCard({ job }: { job: Job }) {
+interface Props {
+  job: Job;
+  onStatusChange?: (id: string, status: JobStatus) => void;
+}
+
+export default function JobCard({ job, onStatusChange }: Props) {
+  const [status, setStatus] = useState<JobStatus>(job.status);
+  const [saving, setSaving] = useState(false);
+
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = e.target.value as JobStatus;
+    setSaving(true);
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: next })
+      .eq("id", job.id);
+    if (!error) {
+      setStatus(next);
+      onStatusChange?.(job.id, next);
+    }
+    setSaving(false);
+  }
+
   return (
-    <Link href={`/jobs/${job.id}`}>
-      <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition-all">
-        <div className="flex items-start justify-between gap-2">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition-all">
+      {/* 제목 영역 — 클릭 시 상세 페이지 */}
+      <Link href={`/jobs/${job.id}`} className="block">
+        <div className="flex items-start justify-between gap-2 mb-3">
           <div className="min-w-0">
             <p className="text-xs text-gray-500 mb-0.5">{job.organization ?? "기관명 없음"}</p>
             <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
           </div>
-          <StatusBadge status={job.status} />
         </div>
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
           {job.employment_type && (
             <span className="bg-gray-50 px-2 py-0.5 rounded">{job.employment_type}</span>
           )}
@@ -44,14 +71,31 @@ export default function JobCard({ job }: { job: Job }) {
         </div>
         <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
           <span>
-            접수마감:{" "}
+            마감:{" "}
             {job.application_end
               ? new Date(job.application_end).toLocaleDateString("ko-KR")
               : "-"}
           </span>
           <DeadlineBadge date={job.application_end} />
         </div>
+      </Link>
+
+      {/* 상태 드롭다운 — 클릭 이벤트 카드와 분리 */}
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <select
+          value={status}
+          onChange={handleStatusChange}
+          disabled={saving}
+          onClick={(e) => e.stopPropagation()}
+          className={`w-full text-xs rounded-lg px-2 py-1.5 border focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-colors ${STATUS_COLORS[status]} border-transparent ${saving ? "opacity-50" : ""}`}
+        >
+          {STATUSES.map(([val, label]) => (
+            <option key={val} value={val} className="bg-white text-gray-900">
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
-    </Link>
+    </div>
   );
 }
