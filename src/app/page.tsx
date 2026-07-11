@@ -34,43 +34,87 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "면접합격", value: "interview_pass" },
   { label: "최종합격", value: "final_pass" },
   { label: "불합격",  value: "failed" },
+  { label: "포기",   value: "withdrawn" },
 ];
 
-const DAY_MS = 86_400_000;
+type SortKey = "deadline_asc" | "deadline_desc" | "deadline_near" | "created_desc";
+
+const SORT_OPTIONS: { label: string; value: SortKey }[] = [
+  { label: "마감임박순",        value: "deadline_near" },
+  { label: "서류마감 오름차순", value: "deadline_asc" },
+  { label: "서류마감 내림차순", value: "deadline_desc" },
+  { label: "등록일순",         value: "created_desc" },
+];
+
 const TODAY = new Date().setHours(0, 0, 0, 0);
-const DEFAULT_MIN = TODAY - 30 * DAY_MS;
-const DEFAULT_MAX = TODAY + 180 * DAY_MS;
+const DAY_MS = 86_400_000;
+
+function sortJobs(jobs: Job[], key: SortKey): Job[] {
+  const copy = [...jobs];
+  const ts = (j: Job) =>
+    j.application_end ? new Date(j.application_end).getTime() : null;
+
+  switch (key) {
+    case "deadline_asc":
+      return copy.sort((a, b) => {
+        const ta = ts(a) ?? Infinity;
+        const tb = ts(b) ?? Infinity;
+        return ta - tb;
+      });
+    case "deadline_desc":
+      return copy.sort((a, b) => {
+        const ta = ts(a) ?? -Infinity;
+        const tb = ts(b) ?? -Infinity;
+        return tb - ta;
+      });
+    case "deadline_near":
+      // 미래 마감일: 가까운 순 → 과거/없음: 마지막
+      return copy.sort((a, b) => {
+        const ta = ts(a);
+        const tb = ts(b);
+        const futureA = ta !== null && ta >= TODAY;
+        const futureB = tb !== null && tb >= TODAY;
+        if (futureA && futureB) return ta! - tb!;
+        if (futureA) return -1;
+        if (futureB) return 1;
+        return (ta ?? 0) - (tb ?? 0);
+      });
+    case "created_desc":
+      return copy.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+  }
+}
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<JobStatus | "all">("all");
-  const [sort, setSort] = useState<"deadline" | "created">("deadline");
+  const [sort, setSort] = useState<SortKey>("deadline_near");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // 기간 필터
   const [dateFilterOn, setDateFilterOn] = useState(false);
-  const [rangeStart, setRangeStart] = useState(DEFAULT_MIN);
-  const [rangeEnd, setRangeEnd] = useState(DEFAULT_MAX);
+  const [rangeStart, setRangeStart] = useState(TODAY);
+  const [rangeEnd, setRangeEnd] = useState(TODAY + 180 * DAY_MS);
+
+  // 지원가능 필터
+  const [availableOnly, setAvailableOnly] = useState(false);
 
   useEffect(() => {
     async function fetchJobs() {
       setLoading(true);
       setFetchError(null);
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .order(sort === "deadline" ? "application_end" : "created_at", {
-          ascending: sort === "deadline",
-          nullsFirst: false,
-        });
+      const { data, error } = await supabase.from("jobs").select("*");
       if (error) {
         console.error("Supabase error:", error);
         setFetchError(error.message);
       } else if (data) {
-        const jobs = data as Job[];
-        setJobs(jobs);
-
-        // 슬라이더 초기 범위를 데이터 기준으로 설정
-        const ts = jobs
+        const list = data as Job[];
+        setJobs(list);
+        // 슬라이더 초기 범위: 데이터의 실제 마감일 범위
+        const ts = list
           .filter((j) => j.application_end)
           .map((j) => new Date(j.application_end!).getTime());
         if (ts.length > 0) {
@@ -81,23 +125,27 @@ export default function Home() {
       setLoading(false);
     }
     fetchJobs();
-  }, [sort]);
+  }, []);
 
   function handleStatusChange(id: string, status: JobStatus) {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status } : j)));
   }
 
-  // 슬라이더용 전체 범위 (데이터 기반)
-  const [sliderMin, sliderMax] = useMemo(() => {
-    const ts = jobs
-      .filter((j) => j.application_end)
-      .map((j) => new Date(j.application_end!).getTime());
-    if (ts.length === 0) return [DEFAULT_MIN, DEFAULT_MAX];
-    return [Math.min(...ts), Math.max(...ts)];
+  const sliderMin = useMemo(() => {
+    const ts = jobs.filter((j) => j.application_end).map((j) => new Date(j.application_end!).getTime());
+    return ts.length ? Math.min(...ts) : TODAY - 30 * DAY_MS;
+  }, [jobs]);
+
+  const sliderMax = useMemo(() => {
+    const ts = jobs.filter((j) => j.application_end).map((j) => new Date(j.application_end!).getTime());
+    return ts.length ? Math.max(...ts) : TODAY + 180 * DAY_MS;
   }, [jobs]);
 
   const filtered = useMemo(() => {
     let list = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+    if (availableOnly) {
+      list = list.filter((j) => j.application_end && new Date(j.application_end).getTime() >= TODAY);
+    }
     if (dateFilterOn) {
       list = list.filter((j) => {
         if (!j.application_end) return false;
@@ -105,13 +153,15 @@ export default function Home() {
         return t >= rangeStart && t <= rangeEnd;
       });
     }
-    return list;
-  }, [jobs, filter, dateFilterOn, rangeStart, rangeEnd]);
+    return sortJobs(list, sort);
+  }, [jobs, filter, availableOnly, dateFilterOn, rangeStart, rangeEnd, sort]);
 
   const stats: Record<string, number> = {};
-  for (const j of jobs) {
-    stats[j.status] = (stats[j.status] ?? 0) + 1;
-  }
+  for (const j of jobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
+
+  const availableCount = jobs.filter(
+    (j) => j.application_end && new Date(j.application_end).getTime() >= TODAY
+  ).length;
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-6">
@@ -153,47 +203,77 @@ export default function Home() {
         </div>
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value as "deadline" | "created")}
+          onChange={(e) => setSort(e.target.value as SortKey)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
-          <option value="deadline">마감일순</option>
-          <option value="created">등록순</option>
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
       </div>
 
-      {/* 기간 필터 슬라이더 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-gray-700">서류마감일 기간 필터</span>
-          <button
-            onClick={() => setDateFilterOn((v) => !v)}
-            className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${
-              dateFilterOn ? "bg-indigo-600" : "bg-gray-200"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${
-                dateFilterOn ? "translate-x-4" : "translate-x-0.5"
+      {/* 빠른 필터: 지원가능 + 기간 필터 */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-4">
+        {/* 지원가능 토글 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm font-medium text-gray-700">지원가능 공고만</span>
+            <span className="ml-2 text-xs text-gray-400">서류마감이 오늘 이후인 공고</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-indigo-600 font-medium">{availableCount}개</span>
+            <button
+              onClick={() => setAvailableOnly((v) => !v)}
+              className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${
+                availableOnly ? "bg-indigo-600" : "bg-gray-200"
               }`}
-            />
-          </button>
+            >
+              <span
+                className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${
+                  availableOnly ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
         </div>
-        <div className={dateFilterOn ? "" : "opacity-40 pointer-events-none"}>
-          {sliderMin < sliderMax && (
-            <DateRangeSlider
-              min={sliderMin}
-              max={sliderMax}
-              start={rangeStart}
-              end={rangeEnd}
-              onChange={(s, e) => { setRangeStart(s); setRangeEnd(e); }}
-            />
+
+        {/* 구분선 */}
+        <div className="border-t border-gray-100" />
+
+        {/* 기간 필터 슬라이더 */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-700">서류마감일 기간 필터</span>
+            <button
+              onClick={() => setDateFilterOn((v) => !v)}
+              className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${
+                dateFilterOn ? "bg-indigo-600" : "bg-gray-200"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${
+                  dateFilterOn ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+          <div className={dateFilterOn ? "" : "opacity-40 pointer-events-none"}>
+            {sliderMin < sliderMax && (
+              <DateRangeSlider
+                min={sliderMin}
+                max={sliderMax}
+                start={rangeStart}
+                end={rangeEnd}
+                onChange={(s, e) => { setRangeStart(s); setRangeEnd(e); }}
+              />
+            )}
+          </div>
+          {dateFilterOn && (
+            <p className="text-xs text-indigo-600 mt-2 text-right">
+              {filtered.length}개 공고 표시 중
+            </p>
           )}
         </div>
-        {dateFilterOn && (
-          <p className="text-xs text-indigo-600 mt-2 text-right">
-            {filtered.length}개 공고 표시 중
-          </p>
-        )}
       </div>
 
       {/* 공고 목록 */}

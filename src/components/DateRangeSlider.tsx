@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 interface Props {
-  min: number;   // timestamp ms
+  min: number;
   max: number;
   start: number;
   end: number;
   onChange: (start: number, end: number) => void;
 }
+
+const DAY_MS = 86_400_000;
 
 function fmtDate(ts: number) {
   const d = new Date(ts);
@@ -16,76 +18,83 @@ function fmtDate(ts: number) {
 }
 
 export default function DateRangeSlider({ min, max, start, end, onChange }: Props) {
-  const rangeRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState<"start" | "end" | null>(null);
 
-  const toPercent = (val: number) =>
-    max === min ? 0 : ((val - min) / (max - min)) * 100;
+  const range = max - min || 1;
+  const leftPct  = ((start - min) / range) * 100;
+  const rightPct = ((end   - min) / range) * 100;
 
-  const clamp = (val: number) => Math.max(min, Math.min(max, val));
-
-  function handleStartChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = clamp(Number(e.target.value));
-    onChange(Math.min(val, end), end);
+  function snapToDay(val: number) {
+    return Math.round(val / DAY_MS) * DAY_MS;
   }
 
-  function handleEndChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = clamp(Number(e.target.value));
-    onChange(start, Math.max(val, start));
+  function valueFromClientX(clientX: number): number {
+    const rect = trackRef.current!.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return snapToDay(min + pct * range);
   }
 
-  const leftPct  = toPercent(start);
-  const rightPct = toPercent(end);
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const val = valueFromClientX(e.clientX);
+    const toStart = Math.abs(val - start);
+    const toEnd   = Math.abs(val - end);
+    const thumb   = toStart <= toEnd ? "start" : "end";
+    setDragging(thumb);
+    if (thumb === "start") onChange(Math.min(val, end), end);
+    else                   onChange(start, Math.max(val, start));
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragging) return;
+    const val = valueFromClientX(e.clientX);
+    if (dragging === "start") onChange(Math.min(val, end), end);
+    else                      onChange(start, Math.max(val, start));
+  }
+
+  function onPointerUp() {
+    setDragging(null);
+  }
 
   return (
-    <div className="px-1">
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
+    <div className="select-none">
+      <div className="flex justify-between text-xs font-medium text-indigo-700 mb-2">
         <span>{fmtDate(start)}</span>
         <span>{fmtDate(end)}</span>
       </div>
 
-      <div ref={rangeRef} className="relative h-5 flex items-center">
-        {/* 트랙 배경 */}
-        <div className="absolute w-full h-1.5 rounded-full bg-gray-200" />
+      {/* 트랙 */}
+      <div
+        ref={trackRef}
+        className="relative h-6 flex items-center cursor-pointer"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        {/* 배경 */}
+        <div className="absolute inset-x-0 h-1.5 rounded-full bg-gray-200" />
 
-        {/* 선택 구간 강조 */}
+        {/* 선택 구간 */}
         <div
           className="absolute h-1.5 rounded-full bg-indigo-400"
           style={{ left: `${leftPct}%`, width: `${rightPct - leftPct}%` }}
         />
 
         {/* Start thumb */}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={86400000} // 1일
-          value={start}
-          onChange={handleStartChange}
-          className="absolute w-full h-full opacity-0 cursor-pointer"
-          style={{ zIndex: leftPct > 90 ? 5 : 3 }}
+        <div
+          className={`absolute w-5 h-5 -translate-x-1/2 rounded-full bg-white border-2 shadow transition-shadow ${
+            dragging === "start" ? "border-indigo-700 shadow-md" : "border-indigo-500"
+          }`}
+          style={{ left: `${leftPct}%` }}
         />
 
         {/* End thumb */}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={86400000}
-          value={end}
-          onChange={handleEndChange}
-          className="absolute w-full h-full opacity-0 cursor-pointer"
-          style={{ zIndex: 4 }}
-        />
-
-        {/* 시각적 thumb: start */}
         <div
-          className="absolute w-4 h-4 rounded-full bg-white border-2 border-indigo-500 shadow pointer-events-none"
-          style={{ left: `calc(${leftPct}% - 8px)`, zIndex: 6 }}
-        />
-        {/* 시각적 thumb: end */}
-        <div
-          className="absolute w-4 h-4 rounded-full bg-white border-2 border-indigo-500 shadow pointer-events-none"
-          style={{ left: `calc(${rightPct}% - 8px)`, zIndex: 6 }}
+          className={`absolute w-5 h-5 -translate-x-1/2 rounded-full bg-white border-2 shadow transition-shadow ${
+            dragging === "end" ? "border-indigo-700 shadow-md" : "border-indigo-500"
+          }`}
+          style={{ left: `${rightPct}%` }}
         />
       </div>
 
