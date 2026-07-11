@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { daysFromToday, parseLocalDate } from "@/lib/dates";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
-const TODAY = new Date().setHours(0, 0, 0, 0);
 
 // v1 Oa 색상 맵 (fit 점수별 왼쪽 보더 색)
 const FIT_BORDER: Record<number, string> = {
@@ -85,8 +85,9 @@ function DeadlinePill({
     return <span className={cls} style={{ background: COLORS.undecided.bg, color: COLORS.undecided.col }}>미정</span>;
   }
 
-  const dt = new Date(date);
-  const diff = Math.ceil((dt.getTime() - TODAY) / 86_400_000);
+  const t = parseLocalDate(date)!;
+  const dt = new Date(t);
+  const diff = daysFromToday(date)!;
   const mm = dt.getMonth() + 1;
   const dd = dt.getDate();
   const mmdd = `${mm}/${dd}`;
@@ -100,8 +101,9 @@ function DeadlinePill({
 
 // 다른 일정 컬럼용 간단 표기
 function fmtDate(d: string | null, textColor?: string) {
-  if (!d) return <span style={{ color: "#CBD5E0" }}>-</span>;
-  const dt = new Date(d);
+  const t = parseLocalDate(d);
+  if (t === null) return <span style={{ color: "#CBD5E0" }}>-</span>;
+  const dt = new Date(t);
   return <span style={{ color: textColor ?? COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
 }
 

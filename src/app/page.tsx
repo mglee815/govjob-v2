@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
+import { parseLocalDate, TODAY_MS } from "@/lib/dates";
 import JobTable from "@/components/JobTable";
 
 const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
@@ -44,29 +45,16 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
 
 type SortKey = "deadline_near" | "created_desc" | "written_near";
 
-const TODAY = new Date().setHours(0, 0, 0, 0);
-
 function sortJobs(jobs: Job[], key: SortKey): Job[] {
   const copy = [...jobs];
-  const ts = (j: Job) => (j.application_end ? new Date(j.application_end).getTime() : null);
 
-  if (key === "deadline_near") {
+  if (key === "deadline_near" || key === "written_near") {
+    const field = key === "deadline_near" ? "application_end" : "written_exam_date";
     return copy.sort((a, b) => {
-      const ta = ts(a), tb = ts(b);
-      const fa = ta !== null && ta >= TODAY;
-      const fb = tb !== null && tb >= TODAY;
-      if (fa && fb) return ta! - tb!;
-      if (fa) return -1;
-      if (fb) return 1;
-      return (ta ?? 0) - (tb ?? 0);
-    });
-  }
-  if (key === "written_near") {
-    return copy.sort((a, b) => {
-      const ta = a.written_exam_date ? new Date(a.written_exam_date).getTime() : null;
-      const tb = b.written_exam_date ? new Date(b.written_exam_date).getTime() : null;
-      const fa = ta !== null && ta >= TODAY;
-      const fb = tb !== null && tb >= TODAY;
+      const ta = parseLocalDate(a[field] as string | null);
+      const tb = parseLocalDate(b[field] as string | null);
+      const fa = ta !== null && ta >= TODAY_MS;
+      const fb = tb !== null && tb >= TODAY_MS;
       if (fa && fb) return ta! - tb!;
       if (fa) return -1;
       if (fb) return 1;
@@ -102,7 +90,7 @@ export default function Home() {
     let list = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
     if (availableOnly) {
       list = list.filter(
-        (j) => j.application_end && new Date(j.application_end).getTime() >= TODAY
+        (j) => j.application_end && (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS
       );
     }
     return sortJobs(list, sort);
@@ -112,7 +100,7 @@ export default function Home() {
   for (const j of jobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
 
   const availableCount = jobs.filter(
-    (j) => j.application_end && new Date(j.application_end).getTime() >= TODAY
+    (j) => j.application_end && (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS
   ).length;
 
   return (
