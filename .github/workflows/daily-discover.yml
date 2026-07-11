@@ -1,0 +1,33 @@
+name: 매일 채용 공고 URL 수집
+
+on:
+  schedule:
+    # 매일 오전 9시 KST (UTC 00:00)
+    - cron: "0 0 * * *"
+  workflow_dispatch: # 수동 실행 버튼
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 패키지 설치
+        run: pip install -r agents/requirements.txt
+
+      - name: URL 수집 실행
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ -f agents/sources.txt ]; then
+            python agents/discover_jobs.py --sources agents/sources.txt
+          else
+            echo "agents/sources.txt 없음 - sources.example.txt를 복사하여 채워주세요"
+            exit 0
+          fi

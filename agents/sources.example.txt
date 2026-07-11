@@ -1,0 +1,14 @@
+# 채용 공고 수집 소스 목록
+# 이 파일을 복사해서 sources.txt로 사용하세요 (sources.txt는 .gitignore 처리됨)
+
+# 나라일터 - 공공기관 채용 목록
+# https://www.work.go.kr/empInfo/empInfoSrch/list.do
+
+# 알리오 (공공기관 경영정보) 채용공고
+# https://www.alio.go.kr/recruit/recruitList.do
+
+# 잡코리아 공공기관
+# https://www.jobkorea.co.kr/Search/?stext=공공기관&tabType=recruit
+
+# 사람인 공공기관
+# https://www.saramin.co.kr/zf_user/search/recruit?search_area=main&search_done=y&search_optional_item=n&searchType=search&searchword=공공기관
