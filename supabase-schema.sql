@@ -14,8 +14,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   salary TEXT,                -- 급여/보수
   application_start DATE,     -- 접수시작일
   application_end DATE,       -- 접수마감일
+  doc_announcement_date DATE, -- 서류발표일
   written_exam_date DATE,     -- 필기시험일
-  interview_date DATE,        -- 면접일
+  interview_date DATE,        -- 면접일 (1차)
+  interview_date_2 DATE,      -- 면접일 (2차)
   announcement_date DATE,     -- 최종발표일
   notes TEXT,                 -- 내 메모
   status TEXT DEFAULT 'bookmarked' CHECK (

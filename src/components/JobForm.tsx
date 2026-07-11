@@ -31,8 +31,10 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     salary: initialData.salary ?? "",
     application_start: initialData.application_start ?? "",
     application_end: initialData.application_end ?? "",
+    doc_announcement_date: initialData.doc_announcement_date ?? "",
     written_exam_date: initialData.written_exam_date ?? "",
     interview_date: initialData.interview_date ?? "",
+    interview_date_2: initialData.interview_date_2 ?? "",
     announcement_date: initialData.announcement_date ?? "",
     notes: initialData.notes ?? "",
     status: initialData.status ?? "bookmarked",
@@ -234,11 +236,13 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">일정</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {[
-            { key: "application_start", label: "접수 시작일" },
-            { key: "application_end", label: "접수 마감일" },
-            { key: "written_exam_date", label: "필기시험일" },
-            { key: "interview_date", label: "면접일" },
-            { key: "announcement_date", label: "최종발표일" },
+            { key: "application_start",    label: "접수 시작일" },
+            { key: "application_end",      label: "서류 마감일" },
+            { key: "doc_announcement_date",label: "서류 발표일" },
+            { key: "written_exam_date",    label: "필기시험일" },
+            { key: "interview_date",       label: "면접일 (1차)" },
+            { key: "interview_date_2",     label: "면접일 (2차)" },
+            { key: "announcement_date",    label: "최종 발표일" },
           ].map(({ key, label }) => (
             <div key={key}>
               <label className="label">{label}</label>

@@ -46,8 +46,10 @@ export interface Job {
   salary: string | null;
   application_start: string | null;
   application_end: string | null;
+  doc_announcement_date: string | null;
   written_exam_date: string | null;
   interview_date: string | null;
+  interview_date_2: string | null;
   announcement_date: string | null;
   notes: string | null;
   status: JobStatus;
