@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   url TEXT,
   duty TEXT,                  -- 직무 (일반직 6급, 행정직, 사무행정 등)
   employment_type TEXT,       -- 정규직, 계약직, 무기계약직, 기간제 등
+  fit INTEGER DEFAULT 0,      -- 직무 적합도 (0=미평가, 1~5 별점)
+  fit_reason TEXT,            -- 적합도 판단 근거 (AI 생성)
   work_location TEXT,         -- 근무지
   eligibility TEXT,           -- 지원자격
   selection_method TEXT,      -- 선발방식

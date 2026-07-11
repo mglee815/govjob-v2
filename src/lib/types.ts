@@ -71,6 +71,8 @@ export interface Job {
   url: string | null;
   duty: string | null;
   employment_type: string | null;
+  fit: number | null;
+  fit_reason: string | null;
   work_location: string | null;
   eligibility: string | null;
   selection_method: string | null;
