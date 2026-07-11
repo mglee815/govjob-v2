@@ -95,10 +95,28 @@ export default function JobDetailPage() {
         </div>
       </div>
 
+      {/* 적합도 */}
+      {(job.fit ?? 0) > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">직무 적합도</h2>
+          <div className="flex items-center gap-3">
+            <span
+              className="text-amber-600 text-2xl"
+              style={{ letterSpacing: -2 }}
+            >
+              {"★".repeat(job.fit ?? 0)}
+              <span className="text-gray-300">{"☆".repeat(5 - (job.fit ?? 0))}</span>
+            </span>
+            <span className="text-sm text-gray-700">{job.fit_reason ?? "-"}</span>
+          </div>
+        </div>
+      )}
+
       {/* 상세 정보 */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">공고 정보</h2>
         <Row label="기관" value={job.organization} />
+        <Row label="직무" value={job.duty} />
         <Row label="고용형태" value={job.employment_type} />
         <Row label="근무지" value={job.work_location} />
         <Row label="급여" value={job.salary} />
@@ -127,8 +145,10 @@ export default function JobDetailPage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">일정</h2>
         <Row label="접수 시작" value={job.application_start ? new Date(job.application_start).toLocaleDateString("ko-KR") : null} />
         <Row label="접수 마감" value={job.application_end ? new Date(job.application_end).toLocaleDateString("ko-KR") : null} />
+        <Row label="서류 발표" value={job.doc_announcement_date ? new Date(job.doc_announcement_date).toLocaleDateString("ko-KR") : null} />
         <Row label="필기시험" value={job.written_exam_date ? new Date(job.written_exam_date).toLocaleDateString("ko-KR") : null} />
-        <Row label="면접" value={job.interview_date ? new Date(job.interview_date).toLocaleDateString("ko-KR") : null} />
+        <Row label="면접 1차" value={job.interview_date ? new Date(job.interview_date).toLocaleDateString("ko-KR") : null} />
+        <Row label="면접 2차" value={job.interview_date_2 ? new Date(job.interview_date_2).toLocaleDateString("ko-KR") : null} />
         <Row label="최종발표" value={job.announcement_date ? new Date(job.announcement_date).toLocaleDateString("ko-KR") : null} />
       </div>
 

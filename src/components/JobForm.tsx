@@ -25,6 +25,8 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     url: initialData.url ?? "",
     duty: initialData.duty ?? "",
     employment_type: initialData.employment_type ?? "",
+    fit: initialData.fit ?? 0,
+    fit_reason: initialData.fit_reason ?? "",
     work_location: initialData.work_location ?? "",
     eligibility: initialData.eligibility ?? "",
     selection_method: initialData.selection_method ?? "",
@@ -85,6 +87,8 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       organization: form.organization || null,
       duty: form.duty || null,
       employment_type: form.employment_type || null,
+      fit: form.fit ?? 0,
+      fit_reason: form.fit_reason || null,
       work_location: form.work_location || null,
       eligibility: form.eligibility || null,
       selection_method: form.selection_method || null,
@@ -211,6 +215,37 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
                 <option key={val} value={val}>{label}</option>
               ))}
             </select>
+          </div>
+        </div>
+      </section>
+
+      {/* 적합도 */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">직무 적합도</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">별점 (1~5, 0=미평가)</label>
+            <select
+              value={form.fit ?? 0}
+              onChange={(e) => set("fit", Number(e.target.value))}
+              className="input"
+            >
+              <option value={0}>미평가</option>
+              <option value={1}>★ (1점)</option>
+              <option value={2}>★★ (2점)</option>
+              <option value={3}>★★★ (3점)</option>
+              <option value={4}>★★★★ (4점)</option>
+              <option value={5}>★★★★★ (5점)</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">평가 이유</label>
+            <input
+              value={form.fit_reason ?? ""}
+              onChange={(e) => set("fit_reason", e.target.value)}
+              className="input"
+              placeholder="예) 서울 정규직, 데이터분석 직무, 석사 우대"
+            />
           </div>
         </div>
       </section>
