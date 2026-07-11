@@ -3,34 +3,40 @@ export type JobStatus =
   | "planning"
   | "applied"
   | "doc_pass"
+  | "written_wait"
   | "written_pass"
+  | "interview_wait"
   | "interview_pass"
   | "final_pass"
   | "failed"
   | "withdrawn";
 
 export const STATUS_LABELS: Record<JobStatus, string> = {
-  bookmarked: "관심",
-  planning: "지원예정",
-  applied: "지원완료",
-  doc_pass: "서류합격",
-  written_pass: "필기합격",
+  bookmarked:     "관심",
+  planning:       "지원예정",
+  applied:        "지원완료",
+  doc_pass:       "서류합격",
+  written_wait:   "필기대기",
+  written_pass:   "필기합격",
+  interview_wait: "면접대기",
   interview_pass: "면접합격",
-  final_pass: "최종합격",
-  failed: "불합격",
-  withdrawn: "포기",
+  final_pass:     "최종합격",
+  failed:         "불합격",
+  withdrawn:      "포기",
 };
 
 export const STATUS_COLORS: Record<JobStatus, string> = {
-  bookmarked: "bg-gray-100 text-gray-700",
-  planning: "bg-blue-100 text-blue-700",
-  applied: "bg-indigo-100 text-indigo-700",
-  doc_pass: "bg-yellow-100 text-yellow-700",
-  written_pass: "bg-orange-100 text-orange-700",
+  bookmarked:     "bg-gray-100 text-gray-700",
+  planning:       "bg-blue-100 text-blue-700",
+  applied:        "bg-indigo-100 text-indigo-700",
+  doc_pass:       "bg-yellow-100 text-yellow-700",
+  written_wait:   "bg-teal-100 text-teal-700",
+  written_pass:   "bg-orange-100 text-orange-700",
+  interview_wait: "bg-violet-100 text-violet-700",
   interview_pass: "bg-purple-100 text-purple-700",
-  final_pass: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
-  withdrawn: "bg-gray-100 text-gray-400",
+  final_pass:     "bg-green-100 text-green-700",
+  failed:         "bg-red-100 text-red-700",
+  withdrawn:      "bg-gray-100 text-gray-400",
 };
 
 export interface Job {

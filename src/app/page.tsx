@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
 import JobCard from "@/components/JobCard";
+import DateRangeSlider from "@/components/DateRangeSlider";
 
-// KPI 카드: 진행 중인 단계만 (최종합격 제외)
 const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
 
 const KPI_COLORS: Record<string, string> = {
@@ -23,16 +23,23 @@ const KPI_NUMBER_COLORS: Record<string, string> = {
 };
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
-  { label: "전체", value: "all" },
-  { label: "관심", value: "bookmarked" },
+  { label: "전체",   value: "all" },
+  { label: "관심",   value: "bookmarked" },
   { label: "지원예정", value: "planning" },
   { label: "지원완료", value: "applied" },
   { label: "서류합격", value: "doc_pass" },
+  { label: "필기대기", value: "written_wait" },
   { label: "필기합격", value: "written_pass" },
+  { label: "면접대기", value: "interview_wait" },
   { label: "면접합격", value: "interview_pass" },
   { label: "최종합격", value: "final_pass" },
-  { label: "불합격", value: "failed" },
+  { label: "불합격",  value: "failed" },
 ];
+
+const DAY_MS = 86_400_000;
+const TODAY = new Date().setHours(0, 0, 0, 0);
+const DEFAULT_MIN = TODAY - 30 * DAY_MS;
+const DEFAULT_MAX = TODAY + 180 * DAY_MS;
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -40,6 +47,9 @@ export default function Home() {
   const [sort, setSort] = useState<"deadline" | "created">("deadline");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [dateFilterOn, setDateFilterOn] = useState(false);
+  const [rangeStart, setRangeStart] = useState(DEFAULT_MIN);
+  const [rangeEnd, setRangeEnd] = useState(DEFAULT_MAX);
 
   useEffect(() => {
     async function fetchJobs() {
@@ -56,7 +66,17 @@ export default function Home() {
         console.error("Supabase error:", error);
         setFetchError(error.message);
       } else if (data) {
-        setJobs(data as Job[]);
+        const jobs = data as Job[];
+        setJobs(jobs);
+
+        // 슬라이더 초기 범위를 데이터 기준으로 설정
+        const ts = jobs
+          .filter((j) => j.application_end)
+          .map((j) => new Date(j.application_end!).getTime());
+        if (ts.length > 0) {
+          setRangeStart(Math.min(...ts));
+          setRangeEnd(Math.max(...ts));
+        }
       }
       setLoading(false);
     }
@@ -67,7 +87,26 @@ export default function Home() {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status } : j)));
   }
 
-  const filtered = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+  // 슬라이더용 전체 범위 (데이터 기반)
+  const [sliderMin, sliderMax] = useMemo(() => {
+    const ts = jobs
+      .filter((j) => j.application_end)
+      .map((j) => new Date(j.application_end!).getTime());
+    if (ts.length === 0) return [DEFAULT_MIN, DEFAULT_MAX];
+    return [Math.min(...ts), Math.max(...ts)];
+  }, [jobs]);
+
+  const filtered = useMemo(() => {
+    let list = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+    if (dateFilterOn) {
+      list = list.filter((j) => {
+        if (!j.application_end) return false;
+        const t = new Date(j.application_end).getTime();
+        return t >= rangeStart && t <= rangeEnd;
+      });
+    }
+    return list;
+  }, [jobs, filter, dateFilterOn, rangeStart, rangeEnd]);
 
   const stats: Record<string, number> = {};
   for (const j of jobs) {
@@ -76,7 +115,7 @@ export default function Home() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-6">
-      {/* KPI 카드 — 클릭하면 해당 상태로 필터 */}
+      {/* KPI 카드 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {KPI_STATUSES.map((s) => (
           <button
@@ -93,7 +132,7 @@ export default function Home() {
       </div>
 
       {/* 필터 & 정렬 */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex flex-wrap gap-1.5">
           {FILTER_OPTIONS.map((opt) => (
             <button
@@ -122,6 +161,41 @@ export default function Home() {
         </select>
       </div>
 
+      {/* 기간 필터 슬라이더 */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-gray-700">서류마감일 기간 필터</span>
+          <button
+            onClick={() => setDateFilterOn((v) => !v)}
+            className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${
+              dateFilterOn ? "bg-indigo-600" : "bg-gray-200"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${
+                dateFilterOn ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
+        <div className={dateFilterOn ? "" : "opacity-40 pointer-events-none"}>
+          {sliderMin < sliderMax && (
+            <DateRangeSlider
+              min={sliderMin}
+              max={sliderMax}
+              start={rangeStart}
+              end={rangeEnd}
+              onChange={(s, e) => { setRangeStart(s); setRangeEnd(e); }}
+            />
+          )}
+        </div>
+        {dateFilterOn && (
+          <p className="text-xs text-indigo-600 mt-2 text-right">
+            {filtered.length}개 공고 표시 중
+          </p>
+        )}
+      </div>
+
       {/* 공고 목록 */}
       {loading ? (
         <div className="text-center py-20 text-gray-400">불러오는 중...</div>
@@ -130,12 +204,11 @@ export default function Home() {
           <p className="text-2xl mb-3">⚠️</p>
           <p className="font-medium">Supabase 연결 오류</p>
           <p className="text-sm mt-2 text-red-400">{fetchError}</p>
-          <p className="text-xs mt-2 text-gray-400">Vercel 환경변수를 확인해주세요</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <p className="text-4xl mb-3">📋</p>
-          <p>공고가 없습니다. 오른쪽 위 버튼으로 추가해보세요.</p>
+          <p>조건에 맞는 공고가 없습니다.</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
