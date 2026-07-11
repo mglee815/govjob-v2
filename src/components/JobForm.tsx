@@ -18,6 +18,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [form, setForm] = useState<JobInsert>({
     title: initialData.title ?? "",
@@ -96,10 +97,14 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       notes: form.notes || null,
     };
 
-    if (jobId) {
-      await supabase.from("jobs").update(payload).eq("id", jobId);
-    } else {
-      await supabase.from("jobs").insert(payload);
+    const { error } = jobId
+      ? await supabase.from("jobs").update(payload).eq("id", jobId)
+      : await supabase.from("jobs").insert(payload);
+
+    if (error) {
+      setSaveError("저장 실패: " + error.message);
+      setSaving(false);
+      return;
     }
 
     setSaving(false);
@@ -314,6 +319,12 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
           placeholder="준비 사항, 유의사항, 기타 메모..."
         />
       </section>
+
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700" role="alert">
+          {saveError}
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <button

@@ -26,6 +26,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -33,8 +34,9 @@ export default function JobDetailPage() {
       .select("*")
       .eq("id", id)
       .single()
-      .then(({ data }) => {
-        setJob(data as Job);
+      .then(({ data, error: err }) => {
+        if (err) setError(err.message);
+        else setJob(data as Job);
         setLoading(false);
       });
   }, [id]);
@@ -42,19 +44,30 @@ export default function JobDetailPage() {
   async function updateStatus(status: JobStatus) {
     if (!job) return;
     setStatusUpdating(true);
-    await supabase.from("jobs").update({ status }).eq("id", id);
-    setJob({ ...job, status });
+    setError(null);
+    const { error: err } = await supabase.from("jobs").update({ status }).eq("id", id);
+    if (err) {
+      setError("상태 변경 실패: " + err.message);
+    } else {
+      setJob({ ...job, status });
+    }
     setStatusUpdating(false);
   }
 
   async function deleteJob() {
     if (!confirm("이 공고를 삭제할까요?")) return;
     setDeleting(true);
-    await supabase.from("jobs").delete().eq("id", id);
+    const { error: err } = await supabase.from("jobs").delete().eq("id", id);
+    if (err) {
+      setError("삭제 실패: " + err.message);
+      setDeleting(false);
+      return;
+    }
     router.push("/");
   }
 
   if (loading) return <div className="text-center py-20 text-gray-400">불러오는 중...</div>;
+  if (!job && error) return <div className="text-center py-20 text-red-500">오류: {error}</div>;
   if (!job) return <div className="text-center py-20 text-gray-400">공고를 찾을 수 없습니다.</div>;
 
   return (
@@ -62,6 +75,12 @@ export default function JobDetailPage() {
       <div className="flex items-center gap-2 mb-4">
         <Link href="/" className="text-sm text-indigo-600 hover:underline">← 목록</Link>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* 헤더 */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-4">

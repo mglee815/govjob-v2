@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -140,9 +140,10 @@ function nextMilestone(job: Job): { label: string; date: string } | null {
 interface Props {
   jobs: Job[];
   onStatusChange?: (id: string, status: JobStatus) => void;
+  onToast?: (msg: string, type: "success" | "error") => void;
 }
 
-function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStatusChange"] }) {
+function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
 
@@ -169,6 +170,9 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
     if (!error) {
       setStatus(nextStatus);
       onStatusChange?.(job.id, nextStatus);
+      onToast?.(`${STATUS_LABELS[nextStatus]}(으)로 변경`, "success");
+    } else {
+      onToast?.("상태 변경 실패: " + error.message, "error");
     }
     setSaving(false);
   }
@@ -195,17 +199,17 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
       </td>
 
       {/* 직무 */}
-      <td className="py-2.5 px-2 whitespace-nowrap">
+      <td className="py-2.5 px-2 whitespace-nowrap hidden md:table-cell">
         <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.duty ?? "-"}</span>
       </td>
 
       {/* 유형 */}
-      <td className="py-2.5 px-2 whitespace-nowrap">
+      <td className="py-2.5 px-2 whitespace-nowrap hidden lg:table-cell">
         <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.employment_type ?? "-"}</span>
       </td>
 
       {/* 지역 */}
-      <td className="py-2.5 px-2 whitespace-nowrap">
+      <td className="py-2.5 px-2 whitespace-nowrap hidden md:table-cell">
         <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.work_location ?? "-"}</span>
       </td>
 
@@ -227,19 +231,19 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
       </td>
 
       {/* 서류발표 */}
-      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.doc_announcement_date, dateTextColor)}</td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.doc_announcement_date, dateTextColor)}</td>
 
       {/* 필기 */}
-      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.written_exam_date, dateTextColor)}</td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.written_exam_date, dateTextColor)}</td>
 
       {/* 면접1 */}
-      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.interview_date, dateTextColor)}</td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date, dateTextColor)}</td>
 
       {/* 면접2 */}
-      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.interview_date_2, dateTextColor)}</td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date_2, dateTextColor)}</td>
 
       {/* 최종발표 */}
-      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap">{fmtDate(job.announcement_date, dateTextColor)}</td>
+      <td className="py-2.5 px-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date, dateTextColor)}</td>
 
       {/* 상태 드롭다운 */}
       <td className="py-2.5 pl-2 pr-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -247,6 +251,7 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
           value={status}
           onChange={handleStatus}
           disabled={saving}
+          aria-label={`${job.organization} 상태 변경`}
           className={`text-xs rounded-lg px-2 py-1 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
         >
           {STATUSES.map(([val, label]) => (
@@ -260,21 +265,21 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
   );
 }
 
-export default function JobTable({ jobs, onStatusChange }: Props) {
+export default function JobTable({ jobs, onStatusChange, onToast }: Props) {
   const headers = [
-    { label: "기관명",     cls: "pl-3 pr-2 text-left" },
-    { label: "적합도",     cls: "px-2 text-center" },
-    { label: "직무",       cls: "px-2 text-left" },
-    { label: "유형",       cls: "px-2 text-left" },
-    { label: "지역",       cls: "px-2 text-left" },
-    { label: "다음 관문",  cls: "px-2 text-center" },
-    { label: "서류마감",   cls: "px-2 text-center" },
-    { label: "서류발표",   cls: "px-2 text-center" },
-    { label: "필기",       cls: "px-2 text-center" },
-    { label: "면접1차",    cls: "px-2 text-center" },
-    { label: "면접2차",    cls: "px-2 text-center" },
-    { label: "최종발표",   cls: "px-2 text-center" },
-    { label: "상태",       cls: "pl-2 pr-3 text-left" },
+    { label: "기관명",     cls: "pl-3 pr-2 text-left",   responsive: "" },
+    { label: "적합도",     cls: "px-2 text-center",      responsive: "" },
+    { label: "직무",       cls: "px-2 text-left",        responsive: "hidden md:table-cell" },
+    { label: "유형",       cls: "px-2 text-left",        responsive: "hidden lg:table-cell" },
+    { label: "지역",       cls: "px-2 text-left",        responsive: "hidden md:table-cell" },
+    { label: "다음 관문",  cls: "px-2 text-center",      responsive: "" },
+    { label: "서류마감",   cls: "px-2 text-center",      responsive: "" },
+    { label: "서류발표",   cls: "px-2 text-center",      responsive: "hidden lg:table-cell" },
+    { label: "필기",       cls: "px-2 text-center",      responsive: "hidden lg:table-cell" },
+    { label: "면접1차",    cls: "px-2 text-center",      responsive: "hidden xl:table-cell" },
+    { label: "면접2차",    cls: "px-2 text-center",      responsive: "hidden xl:table-cell" },
+    { label: "최종발표",   cls: "px-2 text-center",      responsive: "hidden xl:table-cell" },
+    { label: "상태",       cls: "pl-2 pr-3 text-left",   responsive: "" },
   ];
 
   return (
@@ -285,13 +290,13 @@ export default function JobTable({ jobs, onStatusChange }: Props) {
         boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
       }}
     >
-      <table className="w-full min-w-[1100px]">
+      <table className="w-full min-w-[480px]">
         <thead>
           <tr style={{ background: COLORS.headerBg, borderBottom: `1px solid ${COLORS.cardBorder}` }}>
             {headers.map((h) => (
               <th
                 key={h.label}
-                className={`py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls}`}
+                className={`py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive}`}
                 style={{ color: COLORS.headerText }}
               >
                 {h.label}
@@ -301,7 +306,7 @@ export default function JobTable({ jobs, onStatusChange }: Props) {
         </thead>
         <tbody>
           {jobs.map((job) => (
-            <Row key={job.id} job={job} onStatusChange={onStatusChange} />
+            <Row key={job.id} job={job} onStatusChange={onStatusChange} onToast={onToast} />
           ))}
         </tbody>
       </table>

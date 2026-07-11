@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
 import { parseLocalDate, TODAY_MS } from "@/lib/dates";
 import JobTable from "@/components/JobTable";
+import Toast from "@/components/Toast";
 
 const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
 
@@ -70,9 +71,11 @@ export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<JobStatus | "all">("all");
   const [sort, setSort] = useState<SortKey>("deadline_near");
+  const [search, setSearch] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     supabase.from("jobs").select("*").then(({ data, error }) => {
@@ -86,15 +89,28 @@ export default function Home() {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status } : j)));
   }
 
+  const handleToast = useCallback((msg: string, type: "success" | "error") => {
+    setToast({ msg, type });
+  }, []);
+
   const filtered = useMemo(() => {
     let list = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (j) =>
+          j.title.toLowerCase().includes(q) ||
+          (j.organization ?? "").toLowerCase().includes(q) ||
+          (j.duty ?? "").toLowerCase().includes(q)
+      );
+    }
     if (availableOnly) {
       list = list.filter(
         (j) => j.application_end && (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS
       );
     }
     return sortJobs(list, sort);
-  }, [jobs, filter, availableOnly, sort]);
+  }, [jobs, filter, search, availableOnly, sort]);
 
   const stats: Record<string, number> = {};
   for (const j of jobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
@@ -121,14 +137,25 @@ export default function Home() {
         ))}
       </div>
 
-      {/* 필터 & 정렬 & 지원가능 */}
+      {/* 검색 & 필터 & 정렬 */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* 텍스트 검색 */}
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="기관명·제목·직무 검색..."
+          aria-label="공고 검색"
+          className="w-full sm:w-56 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-gray-400"
+        />
+
         {/* 상태 필터 */}
         <div className="flex flex-wrap gap-1.5 flex-1">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setFilter(opt.value)}
+              aria-label={`${opt.label} 필터`}
               className={`px-3 py-1 rounded-full text-sm transition-colors ${
                 filter === opt.value
                   ? "bg-indigo-600 text-white"
@@ -158,6 +185,7 @@ export default function Home() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
+          aria-label="정렬 기준"
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
           <option value="deadline_near">마감임박순</option>
@@ -179,13 +207,23 @@ export default function Home() {
         <div className="text-center py-20 text-gray-400">
           <p className="text-4xl mb-3">📋</p>
           <p>조건에 맞는 공고가 없습니다.</p>
+          {(search || filter !== "all" || availableOnly) && (
+            <button
+              onClick={() => { setSearch(""); setFilter("all"); setAvailableOnly(false); }}
+              className="mt-3 text-sm text-indigo-600 hover:underline"
+            >
+              필터 초기화
+            </button>
+          )}
         </div>
       ) : (
         <div>
           <p className="text-xs text-gray-400 mb-2 text-right">{filtered.length}개 공고</p>
-          <JobTable jobs={filtered} onStatusChange={handleStatusChange} />
+          <JobTable jobs={filtered} onStatusChange={handleStatusChange} onToast={handleToast} />
         </div>
       )}
+
+      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </main>
   );
 }
