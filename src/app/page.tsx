@@ -22,10 +22,12 @@ export default function Home() {
   const [filter, setFilter] = useState<JobStatus | "all">("all");
   const [sort, setSort] = useState<"deadline" | "created">("deadline");
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchJobs() {
       setLoading(true);
+      setFetchError(null);
       const { data, error } = await supabase
         .from("jobs")
         .select("*")
@@ -33,7 +35,12 @@ export default function Home() {
           ascending: sort === "deadline",
           nullsFirst: false,
         });
-      if (!error && data) setJobs(data as Job[]);
+      if (error) {
+        console.error("Supabase error:", error);
+        setFetchError(error.message);
+      } else if (data) {
+        setJobs(data as Job[]);
+      }
       setLoading(false);
     }
     fetchJobs();
@@ -91,6 +98,13 @@ export default function Home() {
       {/* 공고 목록 */}
       {loading ? (
         <div className="text-center py-20 text-gray-400">불러오는 중...</div>
+      ) : fetchError ? (
+        <div className="text-center py-20 text-red-500">
+          <p className="text-2xl mb-3">⚠️</p>
+          <p className="font-medium">Supabase 연결 오류</p>
+          <p className="text-sm mt-2 text-red-400">{fetchError}</p>
+          <p className="text-xs mt-2 text-gray-400">Vercel 환경변수를 확인해주세요</p>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <p className="text-4xl mb-3">📋</p>
