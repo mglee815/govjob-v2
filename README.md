@@ -29,25 +29,23 @@
 - **npm** 또는 호환 패키지 매니저
 - **Git**
 
-### 1. 클론 및 의존성 설치
+### 1. 클론 + 자동 셋업 (권장)
 
 ```bash
 git clone https://github.com/mglee815/govjob-v2.git
 cd govjob-v2
-npm install
+bash setup.sh
 ```
 
-### 2. 환경변수 설정
+`setup.sh`가 다음을 자동으로 처리합니다:
+- Node.js 버전 확인 (v20 이상)
+- `npm install` 실행
+- `.env.local.example` → `.env.local` 복사
+- Claude Code CLI 설치 여부 확인
+- Chrome 확장 프로그램 안내
+- (선택) 빌드 테스트
 
-`.env.local.example`을 복사하여 `.env.local`을 만듭니다.
-
-```bash
-cp .env.local.example .env.local
-```
-
-자체 Supabase 프로젝트를 사용하려면 `.env.local`의 값을 수정하세요. 아래 [Supabase 설정](#supabase-설정) 섹션을 참고합니다.
-
-### 3. 개발 서버 실행
+### 2. 개발 서버 실행
 
 ```bash
 npm run dev
@@ -55,11 +53,15 @@ npm run dev
 
 브라우저에서 http://localhost:3000 을 열면 대시보드가 표시됩니다.
 
-### 4. 빌드 확인 (선택)
+### 수동 셋업 (setup.sh 대신)
 
 ```bash
-npm run build
-npm start
+git clone https://github.com/mglee815/govjob-v2.git
+cd govjob-v2
+npm install
+cp .env.local.example .env.local
+# 자체 Supabase를 사용하려면 .env.local 수정 (아래 Supabase 설정 섹션 참고)
+npm run dev
 ```
 
 ---
@@ -98,6 +100,26 @@ claude
 `.claude/profile/user.md` 파일에 자신의 경력, 자격, 선호 조건을 기술하면 `/add-job` 실행 시 이 정보를 기반으로 적합도를 자동 평가합니다.
 
 프로필을 수정하면 다음 `/add-job` 실행부터 새 기준이 자동 적용됩니다. 별도의 스킬 수정은 필요 없습니다.
+
+### Chrome 확장 프로그램 (SPA 채용 사이트 대응)
+
+`/add-job`은 WebFetch로 정보를 가져오지만, SPA(React) 기반 채용 사이트에서는 실패합니다. Chrome 확장을 설치하면 렌더링된 페이지에서 정보를 추출할 수 있습니다.
+
+**방법 A: 공식 확장 (간편)**
+1. Chrome 웹 스토어에서 "Claude in Chrome" 검색 후 설치
+2. Claude Code가 자동으로 연동
+3. 제한: 일부 도메인이 서버 측에서 차단될 수 있음
+
+**방법 B: 오픈소스 포크 (도메인 제한 없음, 권장)**
+1. 포크 저장소 클론:
+   ```bash
+   git clone https://github.com/nicobailon/open-claude-in-chrome.git
+   ```
+2. Chrome → `chrome://extensions` → 개발자 모드 ON
+3. "압축해제된 확장 프로그램을 로드합니다" → 클론한 폴더 선택
+4. 모든 채용 사이트에 자동 네비게이션 가능
+
+> 확장이 없어도 `/add-job`은 동작합니다 (WebFetch 또는 사용자 직접 입력으로 fallback).
 
 ### 자동 Pull 체크 훅
 
@@ -202,6 +224,7 @@ govjob-v2/
 │   ├── hooks/check-pull.sh         # Edit/Write 전 자동 pull 체크
 │   └── settings.json               # 훅 등록
 ├── supabase-schema.sql             # DB 초기화 SQL
+├── setup.sh                        # 초기 환경 셋업 스크립트
 ├── CLAUDE.md                       # Claude Code 프로젝트 지시사항
 └── README.md                       # 이 파일
 ```
