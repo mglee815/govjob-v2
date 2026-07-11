@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "공공기관 채용 트래커",
+  title: "gov잡 트래커",
   description: "공공기관 채용 공고를 한눈에 관리하세요",
 };
 

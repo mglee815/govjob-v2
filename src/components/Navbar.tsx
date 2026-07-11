@@ -5,7 +5,7 @@ export default function Navbar() {
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="font-bold text-lg text-indigo-700">
-          공공기관 채용 트래커
+          gov잡 트래커
         </Link>
         <Link
           href="/jobs/new"

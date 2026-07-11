@@ -24,6 +24,12 @@ const COLORS = {
   passText: "#0E6644",
   failBg: "#FDDCDC",
   failText: "#A32D2D",
+  appliedBg: "#E8F0FE",
+  appliedText: "#1A56DB",
+  monitoringBg: "#FEF3C7",
+  monitoringText: "#92400E",
+  withdrawnBg: "#F9FAFB",
+  withdrawnText: "#9CA3AF",
   star: "#BA7517",
   starEmpty: "#E2E8F0",
   cardBorder: "#E2E8F0",
@@ -42,6 +48,9 @@ const COLORS = {
 
 const PASS_STATUSES = new Set<JobStatus>(["doc_pass", "written_pass", "interview_pass", "final_pass"]);
 const FAIL_STATUSES = new Set<JobStatus>(["doc_fail", "written_fail", "interview_fail"]);
+const APPLIED_STATUSES = new Set<JobStatus>(["applied"]);
+const MONITORING_STATUSES = new Set<JobStatus>(["monitoring"]);
+const WITHDRAWN_STATUSES = new Set<JobStatus>(["withdrawn", "expired"]);
 const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
 
 // v1 style 별점
@@ -149,15 +158,25 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
 
   const isPass = PASS_STATUSES.has(status);
   const isFail = FAIL_STATUSES.has(status);
+  const isApplied = APPLIED_STATUSES.has(status);
+  const isMonitoring = MONITORING_STATUSES.has(status);
+  const isWithdrawn = WITHDRAWN_STATUSES.has(status);
   const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
 
   const rowStyle: React.CSSProperties = isPass
     ? { background: COLORS.passBg, color: COLORS.passText }
     : isFail
     ? { background: COLORS.failBg, color: COLORS.failText, opacity: 0.65 }
+    : isApplied
+    ? { background: COLORS.appliedBg, color: COLORS.appliedText }
+    : isMonitoring
+    ? { background: COLORS.monitoringBg, color: COLORS.monitoringText, fontWeight: 500 }
+    : isWithdrawn
+    ? { background: COLORS.withdrawnBg, color: COLORS.withdrawnText, opacity: 0.6 }
     : {};
-  const hoverCls = !isPass && !isFail ? "hover:bg-indigo-50/40" : "";
-  const textColor = isPass ? COLORS.passText : isFail ? COLORS.failText : undefined;
+  const hasRowColor = isPass || isFail || isApplied || isMonitoring || isWithdrawn;
+  const hoverCls = !hasRowColor ? "hover:bg-indigo-50/40" : "";
+  const textColor = isPass ? COLORS.passText : isFail ? COLORS.failText : isApplied ? COLORS.appliedText : isMonitoring ? COLORS.monitoringText : isWithdrawn ? COLORS.withdrawnText : undefined;
   const dateTextColor = textColor ?? COLORS.metaText;
 
   const next = nextMilestone(job);
