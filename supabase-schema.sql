@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   title TEXT NOT NULL,
   organization TEXT,
   url TEXT,
+  duty TEXT,                  -- 직무 (일반직 6급, 행정직, 사무행정 등)
   employment_type TEXT,       -- 정규직, 계약직, 무기계약직, 기간제 등
   work_location TEXT,         -- 근무지
   eligibility TEXT,           -- 지원자격
@@ -20,11 +21,13 @@ CREATE TABLE IF NOT EXISTS jobs (
   interview_date_2 DATE,      -- 면접일 (2차)
   announcement_date DATE,     -- 최종발표일
   notes TEXT,                 -- 내 메모
-  status TEXT DEFAULT 'bookmarked' CHECK (
+  status TEXT DEFAULT 'collected' CHECK (
     status IN (
-      'bookmarked', 'planning', 'applied',
-      'doc_pass', 'written_pass', 'interview_pass',
-      'final_pass', 'failed', 'withdrawn'
+      'collected', 'monitoring', 'check_needed', 'available', 'watching',
+      'applied', 'doc_pass', 'doc_fail',
+      'written_wait', 'written_pass', 'written_fail',
+      'interview_wait', 'interview_pass', 'interview_fail',
+      'final_pass', 'withdrawn', 'expired'
     )
   ),
   created_at TIMESTAMPTZ DEFAULT NOW(),

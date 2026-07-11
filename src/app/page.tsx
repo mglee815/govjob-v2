@@ -22,21 +22,27 @@ const KPI_NUMBER_COLORS: Record<string, string> = {
 };
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
-  { label: "전체",    value: "all" },
-  { label: "관심",    value: "bookmarked" },
-  { label: "지원예정", value: "planning" },
-  { label: "지원완료", value: "applied" },
-  { label: "서류합격", value: "doc_pass" },
-  { label: "필기대기", value: "written_wait" },
-  { label: "필기합격", value: "written_pass" },
-  { label: "면접대기", value: "interview_wait" },
-  { label: "면접합격", value: "interview_pass" },
-  { label: "최종합격", value: "final_pass" },
-  { label: "불합격",  value: "failed" },
-  { label: "포기",    value: "withdrawn" },
+  { label: "전체",        value: "all" },
+  { label: "수집",        value: "collected" },
+  { label: "모니터링",    value: "monitoring" },
+  { label: "확인필요",    value: "check_needed" },
+  { label: "접수중",      value: "available" },
+  { label: "다음공고대기", value: "watching" },
+  { label: "서류제출",    value: "applied" },
+  { label: "서류합격",    value: "doc_pass" },
+  { label: "서류불합격",  value: "doc_fail" },
+  { label: "필기대기",    value: "written_wait" },
+  { label: "필기합격",    value: "written_pass" },
+  { label: "필기불합격",  value: "written_fail" },
+  { label: "면접대기",    value: "interview_wait" },
+  { label: "면접합격",    value: "interview_pass" },
+  { label: "면접불합격",  value: "interview_fail" },
+  { label: "최종합격",    value: "final_pass" },
+  { label: "패스(미지원)", value: "withdrawn" },
+  { label: "마감(미지원)", value: "expired" },
 ];
 
-type SortKey = "deadline_near" | "created_desc";
+type SortKey = "deadline_near" | "created_desc" | "written_near";
 
 const TODAY = new Date().setHours(0, 0, 0, 0);
 
@@ -47,6 +53,18 @@ function sortJobs(jobs: Job[], key: SortKey): Job[] {
   if (key === "deadline_near") {
     return copy.sort((a, b) => {
       const ta = ts(a), tb = ts(b);
+      const fa = ta !== null && ta >= TODAY;
+      const fb = tb !== null && tb >= TODAY;
+      if (fa && fb) return ta! - tb!;
+      if (fa) return -1;
+      if (fb) return 1;
+      return (ta ?? 0) - (tb ?? 0);
+    });
+  }
+  if (key === "written_near") {
+    return copy.sort((a, b) => {
+      const ta = a.written_exam_date ? new Date(a.written_exam_date).getTime() : null;
+      const tb = b.written_exam_date ? new Date(b.written_exam_date).getTime() : null;
       const fa = ta !== null && ta >= TODAY;
       const fb = tb !== null && tb >= TODAY;
       if (fa && fb) return ta! - tb!;
@@ -155,6 +173,7 @@ export default function Home() {
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
           <option value="deadline_near">마감임박순</option>
+          <option value="written_near">필기임박순</option>
           <option value="created_desc">등록일순</option>
         </select>
       </div>

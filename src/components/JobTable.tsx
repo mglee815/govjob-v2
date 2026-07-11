@@ -49,21 +49,14 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
     <tr className="border-b border-gray-100 hover:bg-indigo-50/40 transition-colors group">
       {/* 기관명 */}
       <td className="py-2.5 pl-3 pr-2 whitespace-nowrap">
-        <Link href={`/jobs/${job.id}`} className="text-xs text-gray-500 hover:text-indigo-600 group-hover:underline">
+        <Link href={`/jobs/${job.id}`} className="text-xs font-medium text-gray-700 hover:text-indigo-600 group-hover:underline">
           {job.organization ?? "-"}
         </Link>
       </td>
 
-      {/* 공고 제목 */}
-      <td className="py-2.5 px-2 min-w-[180px] max-w-[260px]">
-        <Link href={`/jobs/${job.id}`} className="text-sm font-medium text-gray-800 hover:text-indigo-700 line-clamp-2 leading-snug">
-          {job.title}
-        </Link>
-      </td>
-
-      {/* 형태 */}
+      {/* 직무 */}
       <td className="py-2.5 px-2 whitespace-nowrap">
-        <span className="text-xs text-gray-600">{job.employment_type ?? "-"}</span>
+        <span className="text-xs text-gray-600">{job.duty ?? "-"}</span>
       </td>
 
       {/* 지역 */}
@@ -124,8 +117,7 @@ function Row({ job, onStatusChange }: { job: Job; onStatusChange?: Props["onStat
 export default function JobTable({ jobs, onStatusChange }: Props) {
   const headers = [
     { label: "기관명",   cls: "pl-3 pr-2 text-left" },
-    { label: "공고 제목", cls: "px-2 text-left" },
-    { label: "형태",    cls: "px-2 text-left" },
+    { label: "직무",    cls: "px-2 text-left" },
     { label: "지역",    cls: "px-2 text-left" },
     { label: "서류마감", cls: "px-2 text-center" },
     { label: "서류발표", cls: "px-2 text-center" },

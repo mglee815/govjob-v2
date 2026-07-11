@@ -71,6 +71,7 @@ SUPABASE_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 | title | TEXT | 공고 제목 |
 | organization | TEXT | 기관명 |
 | url | TEXT | 원문 URL |
+| duty | TEXT | 직무 (일반직 6급, 행정직 등) |
 | employment_type | TEXT | 정규직/계약직 등 |
 | work_location | TEXT | 근무지 |
 | eligibility | TEXT | 지원자격 |
@@ -89,15 +90,23 @@ SUPABASE_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 
 **상태값 (status)**
 ```
-bookmarked      관심
-planning        지원예정
-applied         지원완료
+collected       수집
+monitoring      모니터링
+check_needed    확인필요
+available       접수중
+watching        다음공고대기
+applied         서류제출
 doc_pass        서류합격
+doc_fail        서류불합격
+written_wait    필기대기
 written_pass    필기합격
+written_fail    필기불합격
+interview_wait  면접대기
 interview_pass  면접합격
+interview_fail  면접불합격
 final_pass      최종합격
-failed          불합격
-withdrawn       포기
+withdrawn       패스(미지원)
+expired         마감(미지원)
 ```
 
 DB 초기화가 필요하면 `supabase-schema.sql`을 Supabase SQL Editor에서 실행.

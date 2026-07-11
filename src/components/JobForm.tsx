@@ -23,6 +23,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     title: initialData.title ?? "",
     organization: initialData.organization ?? "",
     url: initialData.url ?? "",
+    duty: initialData.duty ?? "",
     employment_type: initialData.employment_type ?? "",
     work_location: initialData.work_location ?? "",
     eligibility: initialData.eligibility ?? "",
@@ -37,7 +38,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     interview_date_2: initialData.interview_date_2 ?? "",
     announcement_date: initialData.announcement_date ?? "",
     notes: initialData.notes ?? "",
-    status: initialData.status ?? "bookmarked",
+    status: initialData.status ?? "collected",
   });
 
   function set(field: keyof JobInsert, value: string | number | null) {
@@ -82,6 +83,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       interview_date: form.interview_date || null,
       announcement_date: form.announcement_date || null,
       organization: form.organization || null,
+      duty: form.duty || null,
       employment_type: form.employment_type || null,
       work_location: form.work_location || null,
       eligibility: form.eligibility || null,
@@ -149,6 +151,15 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
               onChange={(e) => set("organization", e.target.value)}
               className="input"
               placeholder="예) 한국수자원공사"
+            />
+          </div>
+          <div>
+            <label className="label">직무</label>
+            <input
+              value={form.duty ?? ""}
+              onChange={(e) => set("duty", e.target.value)}
+              className="input"
+              placeholder="예) 일반직 6급, 행정직, 사무행정"
             />
           </div>
           <div>
