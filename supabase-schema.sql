@@ -23,9 +23,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   interview_date_2 DATE,      -- 면접일 (2차)
   announcement_date DATE,     -- 최종발표일
   notes TEXT,                 -- 내 메모
-  status TEXT DEFAULT 'collected' CHECK (
+  status TEXT DEFAULT 'monitoring' CHECK (
     status IN (
-      'collected', 'monitoring', 'check_needed', 'available', 'watching',
+      'monitoring', 'check_needed', 'available', 'watching',
       'applied', 'doc_pass', 'doc_fail',
       'written_wait', 'written_pass', 'written_fail',
       'interview_wait', 'interview_pass', 'interview_fail',

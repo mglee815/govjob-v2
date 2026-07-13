@@ -1,6 +1,5 @@
 export type JobStatus =
   // 초기
-  | "collected"      // 수집
   | "monitoring"     // 모니터링
   | "check_needed"   // 확인필요
   | "available"      // 접수중
@@ -25,7 +24,6 @@ export type JobStatus =
   | "expired";       // 마감(미지원)
 
 export const STATUS_LABELS: Record<JobStatus, string> = {
-  collected:      "수집",
   monitoring:     "모니터링",
   check_needed:   "확인필요",
   available:      "접수중",
@@ -45,7 +43,6 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
 };
 
 export const STATUS_COLORS: Record<JobStatus, string> = {
-  collected:      "bg-slate-100 text-slate-600",
   monitoring:     "bg-gray-100 text-gray-600",
   check_needed:   "bg-amber-50 text-amber-700",
   available:      "bg-blue-100 text-blue-700",

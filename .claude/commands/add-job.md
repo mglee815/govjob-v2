@@ -188,7 +188,7 @@ JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다.
 저장된 공고의 제목, 기관명, 마감일, 적합도(★★★★☆ 4점), fit_reason을 알려줍니다. 대시보드 URL: https://govjob-v2.vercel.app
 
 ## 상태값 기준
-- 기본값: `collected` (수집)
+- 기본값: `monitoring` (모니터링)
 - 사용자가 명시하면 변경:
   - `monitoring` (모니터링)
   - `check_needed` (확인필요)

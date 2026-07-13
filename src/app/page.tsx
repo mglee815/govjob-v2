@@ -25,7 +25,6 @@ const KPI_NUMBER_COLORS: Record<string, string> = {
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "전체",        value: "all" },
-  { label: "수집",        value: "collected" },
   { label: "모니터링",    value: "monitoring" },
   { label: "확인필요",    value: "check_needed" },
   { label: "접수중",      value: "available" },

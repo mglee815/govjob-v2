@@ -41,7 +41,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     interview_date_2: initialData.interview_date_2 ?? "",
     announcement_date: initialData.announcement_date ?? "",
     notes: initialData.notes ?? "",
-    status: initialData.status ?? "collected",
+    status: initialData.status ?? "monitoring",
   });
 
   function set(field: keyof JobInsert, value: string | number | null) {

@@ -114,7 +114,7 @@ test -d node_modules && test -f .env.local
 한규리(사용자)의 공공기관 채용 지원을 관리하는 개인용 트래커. 여러 기기·세션에서 동일한 데이터에 접근하고, Claude Code 스킬을 통해 공고 추가·평가·관리를 자동화합니다.
 
 - 공고 URL 입력 → Claude가 정보 추출 + 프로필 기반 **AI 적합도 평가** → Supabase 저장
-- 지원 상태(수집→접수중→서류→필기→면접→최종) 실시간 추적
+- 지원 상태(모니터링→접수중→서류→필기→면접→최종) 실시간 추적
 - 모든 데이터는 Supabase 중앙 DB에 저장 → 어느 기기에서 접속해도 동일
 
 ---
@@ -212,7 +212,6 @@ SUPABASE_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 
 **상태값 (status)**
 ```
-collected       수집
 monitoring      모니터링
 check_needed    확인필요
 available       접수중
