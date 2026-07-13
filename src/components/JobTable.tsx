@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { daysFromToday, parseLocalDate } from "@/lib/dates";
+import { SortField, SortDir } from "@/lib/sort";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
@@ -168,6 +169,9 @@ interface Props {
   jobs: Job[];
   onStatusChange?: (id: string, status: JobStatus) => void;
   onToast?: (msg: string, type: "success" | "error") => void;
+  sortField?: SortField;
+  sortDir?: SortDir;
+  onSortChange?: (field: SortField, dir: SortDir) => void;
 }
 
 function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
@@ -218,6 +222,23 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
         </Link>
       </td>
 
+      {/* 상태 드롭다운 */}
+      <td className="py-1 px-1.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+        <select
+          value={status}
+          onChange={handleStatus}
+          disabled={saving}
+          aria-label={`${job.organization} 상태 변경`}
+          className={`text-xs rounded-lg px-1.5 py-0.5 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
+        >
+          {STATUSES.map(([val, label]) => (
+            <option key={val} value={val} className="bg-white text-gray-900 font-normal">
+              {label}
+            </option>
+          ))}
+        </select>
+      </td>
+
       {/* 적합도 */}
       <td className="py-1 px-1.5 text-center whitespace-nowrap">
         <FitStars fit={job.fit} reason={job.fit_reason} />
@@ -229,12 +250,12 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
       </td>
 
       {/* 유형 */}
-      <td className="py-1 px-1.5 whitespace-nowrap hidden lg:table-cell">
+      <td className="py-1 px-1.5 whitespace-nowrap hidden lg:table-cell max-w-[140px] truncate">
         <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.employment_type ?? "-"}</span>
       </td>
 
       {/* 지역 */}
-      <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell">
+      <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell max-w-[140px] truncate">
         <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.work_location ?? "-"}</span>
       </td>
 
@@ -268,44 +289,29 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
       <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date_2, dateTextColor)}</td>
 
       {/* 최종발표 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date, dateTextColor)}</td>
-
-      {/* 상태 드롭다운 */}
-      <td className="py-1 pl-1.5 pr-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-        <select
-          value={status}
-          onChange={handleStatus}
-          disabled={saving}
-          aria-label={`${job.organization} 상태 변경`}
-          className={`text-xs rounded-lg px-1.5 py-0.5 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
-        >
-          {STATUSES.map(([val, label]) => (
-            <option key={val} value={val} className="bg-white text-gray-900 font-normal">
-              {label}
-            </option>
-          ))}
-        </select>
-      </td>
+      <td className="py-1 pl-1.5 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date, dateTextColor)}</td>
     </tr>
   );
 }
 
-export default function JobTable({ jobs, onStatusChange, onToast }: Props) {
-  const headers = [
-    { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "" },
-    { label: "적합도",     cls: "px-1.5 text-center",      responsive: "" },
+export default function JobTable({ jobs, onStatusChange, onToast, sortField, sortDir, onSortChange }: Props) {
+  const headers: { label: string; cls: string; responsive: string; sortField?: SortField }[] = [
+    { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization" },
+    { label: "상태",       cls: "px-1.5 text-left",        responsive: "", sortField: "status" },
+    { label: "적합도",     cls: "px-1.5 text-center",      responsive: "", sortField: "fit" },
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell" },
-    { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell" },
-    { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell" },
+    { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type" },
+    { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location" },
     { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "" },
-    { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "" },
-    { label: "서류발표",   cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell" },
-    { label: "필기",       cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell" },
-    { label: "면접1차",    cls: "px-1.5 text-center",      responsive: "hidden xl:table-cell" },
-    { label: "면접2차",    cls: "px-1.5 text-center",      responsive: "hidden xl:table-cell" },
-    { label: "최종발표",   cls: "px-1.5 text-center",      responsive: "hidden xl:table-cell" },
-    { label: "상태",       cls: "pl-1.5 pr-2 text-left",   responsive: "" },
+    { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end" },
+    { label: "서류발표",   cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell", sortField: "doc_announcement_date" },
+    { label: "필기",       cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell", sortField: "written_exam_date" },
+    { label: "면접1차",    cls: "px-1.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date" },
+    { label: "면접2차",    cls: "px-1.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date_2" },
+    { label: "최종발표",   cls: "pl-1.5 pr-2 text-center", responsive: "hidden xl:table-cell", sortField: "announcement_date" },
   ];
+
+  const [openHeader, setOpenHeader] = useState<string | null>(null);
 
   // 상단 보조 스크롤바: 아래 테이블과 스크롤 위치를 동기화해
   // 매번 아래까지 내려가지 않아도 가로 스크롤을 조작할 수 있게 함
@@ -368,15 +374,49 @@ export default function JobTable({ jobs, onStatusChange, onToast }: Props) {
         <table className="w-full min-w-[480px]">
           <thead>
             <tr style={{ background: COLORS.headerBg, borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
-              {headers.map((h) => (
-                <th
-                  key={h.label}
-                  className={`py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive}`}
-                  style={{ color: COLORS.headerText }}
-                >
-                  {h.label}
-                </th>
-              ))}
+              {headers.map((h) => {
+                const isSortable = !!h.sortField;
+                const isActive = isSortable && sortField === h.sortField;
+                const isOpen = openHeader === h.label;
+                return (
+                  <th
+                    key={h.label}
+                    className={`relative py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}`}
+                    style={{ color: isActive ? "#4F46E5" : COLORS.headerText }}
+                    onClick={isSortable ? () => setOpenHeader(isOpen ? null : h.label) : undefined}
+                  >
+                    {h.label}
+                    {isSortable && (
+                      <span className="ml-0.5 text-[9px]">
+                        {isActive ? (sortDir === "asc" ? "▲" : "▼") : "▾"}
+                      </span>
+                    )}
+                    {isOpen && h.sortField && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setOpenHeader(null); }} />
+                        <div
+                          className="absolute left-0 top-full z-20 mt-1 min-w-[92px] rounded-lg bg-white text-left normal-case font-normal shadow-lg border"
+                          style={{ borderColor: COLORS.cardBorder }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-indigo-50 rounded-t-lg"
+                            onClick={() => { onSortChange?.(h.sortField!, "asc"); setOpenHeader(null); }}
+                          >
+                            ▲ 오름차순
+                          </button>
+                          <button
+                            className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-indigo-50 rounded-b-lg"
+                            onClick={() => { onSortChange?.(h.sortField!, "desc"); setOpenHeader(null); }}
+                          >
+                            ▼ 내림차순
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

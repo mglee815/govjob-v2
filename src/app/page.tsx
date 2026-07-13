@@ -2,26 +2,24 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
-import { parseLocalDate, TODAY_MS } from "@/lib/dates";
+import { Job, JobStatus } from "@/lib/types";
+import { parseLocalDate, daysFromToday, TODAY_MS } from "@/lib/dates";
+import { SortField, SortDir, sortJobs } from "@/lib/sort";
 import JobTable from "@/components/JobTable";
 import Toast from "@/components/Toast";
 
-const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
-
-const KPI_COLORS: Record<string, string> = {
-  applied:        "border-indigo-200 hover:border-indigo-400",
-  doc_pass:       "border-yellow-200 hover:border-yellow-400",
-  written_pass:   "border-orange-200 hover:border-orange-400",
-  interview_pass: "border-purple-200 hover:border-purple-400",
-};
-
-const KPI_NUMBER_COLORS: Record<string, string> = {
-  applied:        "text-indigo-600",
-  doc_pass:       "text-yellow-600",
-  written_pass:   "text-orange-600",
-  interview_pass: "text-purple-600",
-};
+// v1(turkeyemily08-arch.github.io/govjob) 배포 번들의 je useMemo와 동일한 정의
+// - 올해 지원: 적합도 평가됨 + 서류마감이 올해(2026) + 아직 지원 전 단계가 아닌 상태
+// - 진행중: 실제 전형이 진행 중인 상태 (최종 확정 전)
+// - 불합격: 서류/필기/면접 불합격
+const NOT_APPLIED_STATUSES: JobStatus[] = ["monitoring", "check_needed", "available", "withdrawn", "watching", "expired"];
+const ACTIVE_STATUSES: JobStatus[] = ["available", "applied", "doc_pass", "written_wait", "written_pass", "interview_wait", "interview_pass"];
+const FAIL_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_fail"];
+// "지원가능" 집계에서 제외할 상태 (이미 지원했거나 더 이상 지원 대상이 아닌 건)
+const NOT_APPLICABLE_STATUSES: JobStatus[] = [
+  "applied", "doc_pass", "doc_fail", "written_wait", "written_pass", "written_fail",
+  "interview_wait", "interview_pass", "interview_fail", "final_pass", "withdrawn", "expired",
+];
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "전체",        value: "all" },
@@ -43,33 +41,17 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "마감(미지원)", value: "expired" },
 ];
 
-type SortKey = "deadline_near" | "created_desc" | "written_near";
-
-function sortJobs(jobs: Job[], key: SortKey): Job[] {
-  const copy = [...jobs];
-
-  if (key === "deadline_near" || key === "written_near") {
-    const field = key === "deadline_near" ? "application_end" : "written_exam_date";
-    return copy.sort((a, b) => {
-      const ta = parseLocalDate(a[field] as string | null);
-      const tb = parseLocalDate(b[field] as string | null);
-      const fa = ta !== null && ta >= TODAY_MS;
-      const fb = tb !== null && tb >= TODAY_MS;
-      if (fa && fb) return ta! - tb!;
-      if (fa) return -1;
-      if (fb) return 1;
-      return (ta ?? 0) - (tb ?? 0);
-    });
-  }
-  return copy.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-}
+const QUICK_SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
+  { label: "마감임박순", field: "application_end", dir: "asc" },
+  { label: "필기임박순", field: "written_exam_date", dir: "asc" },
+  { label: "등록일순",   field: "created_at", dir: "desc" },
+];
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<JobStatus | "all">("all");
-  const [sort, setSort] = useState<SortKey>("deadline_near");
+  const [sortField, setSortField] = useState<SortField>("application_end");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [search, setSearch] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -105,34 +87,60 @@ export default function Home() {
     }
     if (availableOnly) {
       list = list.filter(
-        (j) => j.application_end && (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS
+        (j) =>
+          j.application_end &&
+          (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS &&
+          !NOT_APPLICABLE_STATUSES.includes(j.status)
       );
     }
-    return sortJobs(list, sort);
-  }, [jobs, filter, search, availableOnly, sort]);
+    return sortJobs(list, sortField, sortDir);
+  }, [jobs, filter, search, availableOnly, sortField, sortDir]);
 
   const stats: Record<string, number> = {};
   for (const j of jobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
 
+  // 지원가능: 아직 지원하지 않은(모니터링·확인필요·접수중·다음공고대기) 건 중 마감 전인 것만
   const availableCount = jobs.filter(
-    (j) => j.application_end && (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS
+    (j) =>
+      j.application_end &&
+      (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS &&
+      !NOT_APPLICABLE_STATUSES.includes(j.status)
   ).length;
+
+  const ratedCount = jobs.filter((j) => (j.fit ?? 0) > 0).length;
+  const appliedThisYearCount = jobs.filter(
+    (j) =>
+      (j.fit ?? 0) > 0 &&
+      (j.application_end ?? "").startsWith("2026") &&
+      !NOT_APPLIED_STATUSES.includes(j.status)
+  ).length;
+  const activeCount = jobs.filter((j) => ACTIVE_STATUSES.includes(j.status)).length;
+  const urgentCount = jobs.filter((j) => {
+    const d = daysFromToday(j.application_end);
+    return d !== null && d >= 0 && d <= 5 && j.status === "available";
+  }).length;
+  const failedCount = jobs.filter((j) => FAIL_STATUSES.includes(j.status)).length;
+
+  const kpiCards = [
+    { key: "total", label: "적합도 평가됨", value: ratedCount, ring: "ring-blue-400", border: "border-blue-200 hover:border-blue-400", num: "text-blue-700" },
+    { key: "appliedYear", label: "올해 지원", value: appliedThisYearCount, ring: "ring-purple-400", border: "border-purple-200 hover:border-purple-400", num: "text-purple-700" },
+    { key: "active", label: "진행중", value: activeCount, ring: "ring-green-400", border: "border-green-200 hover:border-green-400", num: "text-green-700" },
+    { key: "urgent", label: "D-5 임박", value: urgentCount, ring: "ring-red-400", border: "border-red-200 hover:border-red-400", num: "text-red-700" },
+    { key: "failed", label: "불합격", value: failedCount, ring: "ring-gray-400", border: "border-gray-200 hover:border-gray-400", num: "text-gray-600" },
+  ];
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-6">
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {KPI_STATUSES.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(filter === s ? "all" : s)}
-            className={`bg-white border-2 rounded-xl p-4 text-center transition-all ${KPI_COLORS[s]} ${
-              filter === s ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
-            }`}
+      {/* KPI 카드 (v1과 동일한 5개 지표) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        {kpiCards.map((c) => (
+          <div
+            key={c.key}
+            className={`bg-white border-2 rounded-xl p-4 text-center transition-all ${c.border}`}
           >
-            <p className={`text-2xl font-bold ${KPI_NUMBER_COLORS[s]}`}>{stats[s] ?? 0}</p>
-            <p className="text-xs text-gray-500 mt-1">{STATUS_LABELS[s]}</p>
-          </button>
+            <p className={`text-2xl font-bold ${c.num}`}>{c.value}</p>
+            <p className="text-xs text-gray-500 mt-1">{c.label}</p>
+          </div>
         ))}
       </div>
 
@@ -180,16 +188,19 @@ export default function Home() {
           지원가능 {availableCount}개
         </button>
 
-        {/* 정렬 */}
+        {/* 빠른 정렬 (컬럼 헤더 클릭으로도 세부 정렬 가능) */}
         <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
+          value={QUICK_SORT_OPTIONS.findIndex((o) => o.field === sortField && o.dir === sortDir)}
+          onChange={(e) => {
+            const opt = QUICK_SORT_OPTIONS[Number(e.target.value)];
+            if (opt) { setSortField(opt.field); setSortDir(opt.dir); }
+          }}
           aria-label="정렬 기준"
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
-          <option value="deadline_near">마감임박순</option>
-          <option value="written_near">필기임박순</option>
-          <option value="created_desc">등록일순</option>
+          {QUICK_SORT_OPTIONS.map((o, i) => (
+            <option key={o.label} value={i}>{o.label}</option>
+          ))}
         </select>
       </div>
 
@@ -218,7 +229,14 @@ export default function Home() {
       ) : (
         <div>
           <p className="text-xs text-gray-400 mb-2 text-right">{filtered.length}개 공고</p>
-          <JobTable jobs={filtered} onStatusChange={handleStatusChange} onToast={handleToast} />
+          <JobTable
+            jobs={filtered}
+            onStatusChange={handleStatusChange}
+            onToast={handleToast}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSortChange={(field, dir) => { setSortField(field); setSortDir(dir); }}
+          />
         </div>
       )}
 
