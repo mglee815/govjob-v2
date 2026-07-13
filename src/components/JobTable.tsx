@@ -18,18 +18,12 @@ const FIT_BORDER: Record<number, string> = {
   0: "#E2E8F0",
 };
 
-// v1 정확한 hex 색상
+// v1 실제 배포 번들(index-0FoaRhOZ.js)에서 추출한 정확한 hex 색상
 const COLORS = {
   passBg: "#D6F5E8",
   passText: "#0E6644",
   failBg: "#FDDCDC",
   failText: "#A32D2D",
-  appliedBg: "#E8F0FE",
-  appliedText: "#1A56DB",
-  monitoringBg: "#FEF3C7",
-  monitoringText: "#92400E",
-  withdrawnBg: "#F9FAFB",
-  withdrawnText: "#9CA3AF",
   star: "#BA7517",
   starEmpty: "#E2E8F0",
   cardBorder: "#E2E8F0",
@@ -37,20 +31,44 @@ const COLORS = {
   headerText: "#718096",
   bodyText: "#374151",
   metaText: "#6B7280",
-  // 마감일 pill
+  // 마감일 pill (v1 Sa() 함수와 동일한 구간·색상)
   ongoing: { bg: "#E1F5EE", col: "#085041" },       // 상시
   undecided: { bg: "#F1EFE8", col: "#5F5E5A" },      // 미정
   closed: { bg: "#F1EFE8", col: "#777770" },         // 마감
-  urgent: { bg: "#FCEBEB", col: "#A32D2D" },         // D-3 이내 / 오늘
-  soon: { bg: "#FFF3E0", col: "#B45309" },           // D-4~7
-  distant: { bg: "#F1EFE8", col: "#5F5E5A" },        // D-8 이상
+  urgent: { bg: "#FCEBEB", col: "#A32D2D" },         // 오늘 · D-5 이내
+  soon: { bg: "#FAEEDA", col: "#633806" },           // D-6~14
+  distant: { bg: "#E6F1FB", col: "#0C447C" },        // D-15 이상
 };
 
-const PASS_STATUSES = new Set<JobStatus>(["doc_pass", "written_pass", "interview_pass", "final_pass"]);
-const FAIL_STATUSES = new Set<JobStatus>(["doc_fail", "written_fail", "interview_fail"]);
-const APPLIED_STATUSES = new Set<JobStatus>(["applied"]);
-const MONITORING_STATUSES = new Set<JobStatus>(["monitoring"]);
-const WITHDRAWN_STATUSES = new Set<JobStatus>(["withdrawn", "expired"]);
+// v1 ma()/_bg() 로직과 동일한 행 배경 그룹핑 (기관명/제목 셀 왼쪽 보더는 적합도색 그대로 유지)
+const GROUP_BG: Record<number, string> = {
+  1: "#EEF4FF", // 진행중 (서류제출·서류합격·필기응시·필기합격·면접예정·면접완료·최종합격)
+  2: "#F6F7F9", // 보류 (확인필요·다음공고대기)
+  3: "#F1F2F4", // 마감(미지원)
+  4: "#FCE8EA", // 서류불합격
+  5: "#EEE9F7", // 필기불합격
+  6: "#F4F5F7", // 면접불합격·최종불합격·적합도 미평가
+  7: "#FAF0F0", // 패스(미지원)
+};
+
+const IN_PROGRESS_STATUSES = new Set<JobStatus>([
+  "applied", "doc_pass", "written_wait", "written_pass", "interview_wait", "interview_pass", "final_pass",
+]);
+
+function v1Group(job: Job): number {
+  const s = job.status;
+  if (s === "withdrawn") return 7;
+  if (s === "doc_fail") return 4;
+  if (s === "written_fail") return 5;
+  if (s === "interview_fail") return 6;
+  if (s === "expired") return 3;
+  if ((job.fit ?? 0) === 0) return 6;
+  if (IN_PROGRESS_STATUSES.has(s)) return 1;
+  if (s === "check_needed" || s === "watching") return 2;
+  return 0;
+}
+
+const DIM_GROUPS = new Set([3, 4, 5, 6, 7]);
 const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
 
 // v1 style 별점
@@ -103,8 +121,8 @@ function DeadlinePill({
 
   if (diff < 0)  return <span className={cls} style={{ background: COLORS.closed.bg, color: COLORS.closed.col }}>마감 ({mmdd})</span>;
   if (diff === 0) return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>오늘 ({mmdd})</span>;
-  if (diff <= 3)  return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>D-{diff} · {mmdd}</span>;
-  if (diff <= 7)  return <span className={cls} style={{ background: COLORS.soon.bg, color: COLORS.soon.col }}>D-{diff} · {mmdd}</span>;
+  if (diff <= 5)  return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>D-{diff} · {mmdd}</span>;
+  if (diff <= 14) return <span className={cls} style={{ background: COLORS.soon.bg, color: COLORS.soon.col }}>D-{diff} · {mmdd}</span>;
   return <span className={cls} style={{ background: COLORS.distant.bg, color: COLORS.distant.col }}>D-{diff} · {mmdd}</span>;
 }
 
@@ -156,28 +174,16 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
 
-  const isPass = PASS_STATUSES.has(status);
-  const isFail = FAIL_STATUSES.has(status);
-  const isApplied = APPLIED_STATUSES.has(status);
-  const isMonitoring = MONITORING_STATUSES.has(status);
-  const isWithdrawn = WITHDRAWN_STATUSES.has(status);
+  const group = v1Group({ ...job, status });
+  const groupBg = GROUP_BG[group];
   const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
 
-  const rowStyle: React.CSSProperties = isPass
-    ? { background: COLORS.passBg, color: COLORS.passText }
-    : isFail
-    ? { background: COLORS.failBg, color: COLORS.failText, opacity: 0.65 }
-    : isApplied
-    ? { background: COLORS.appliedBg, color: COLORS.appliedText }
-    : isMonitoring
-    ? { background: COLORS.monitoringBg, color: COLORS.monitoringText, fontWeight: 500 }
-    : isWithdrawn
-    ? { background: COLORS.withdrawnBg, color: COLORS.withdrawnText, opacity: 0.6 }
+  const rowStyle: React.CSSProperties = groupBg
+    ? { background: groupBg, opacity: DIM_GROUPS.has(group) ? 0.72 : 1 }
     : {};
-  const hasRowColor = isPass || isFail || isApplied || isMonitoring || isWithdrawn;
-  const hoverCls = !hasRowColor ? "hover:bg-indigo-50/40" : "";
-  const textColor = isPass ? COLORS.passText : isFail ? COLORS.failText : isApplied ? COLORS.appliedText : isMonitoring ? COLORS.monitoringText : isWithdrawn ? COLORS.withdrawnText : undefined;
-  const dateTextColor = textColor ?? COLORS.metaText;
+  const hoverCls = !groupBg ? "hover:bg-indigo-50/40" : "";
+  const textColor: string | undefined = undefined;
+  const dateTextColor = COLORS.metaText;
 
   const next = nextMilestone(job);
 
