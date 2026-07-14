@@ -14,6 +14,7 @@ const KPI_DEFS: {
   key: string;
   label: string;
   statuses: JobStatus[];
+  failStatuses?: JobStatus[]; // 지정하면 합격률(=count/(count+해당 불합격 건수))을 함께 표시
   bg: string;
   border: string;
   num: string;
@@ -28,18 +29,21 @@ const KPI_DEFS: {
     key: "doc_passed",
     label: "서류합격 (누적)",
     statuses: ["written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    failStatuses: ["doc_fail"],
     bg: "bg-green-50", border: "border-green-200 hover:border-green-400", num: "text-green-600",
   },
   {
     key: "written_passed",
     label: "필기합격 (누적)",
     statuses: ["written_pass", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    failStatuses: ["written_fail"],
     bg: "bg-orange-50", border: "border-orange-200 hover:border-orange-400", num: "text-orange-600",
   },
   {
     key: "interview_passed",
     label: "면접합격 (누적)",
     statuses: ["interview_pass", "final_pass"],
+    failStatuses: ["interview_fail"],
     bg: "bg-purple-50", border: "border-purple-200 hover:border-purple-400", num: "text-purple-600",
   },
 ];
@@ -195,6 +199,9 @@ export default function Home() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {KPI_DEFS.map((k) => {
           const count = yearFilteredJobs.filter((j) => k.statuses.includes(j.status)).length;
+          const failCount = k.failStatuses ? yearFilteredJobs.filter((j) => k.failStatuses!.includes(j.status)).length : 0;
+          const decided = count + failCount;
+          const rate = k.failStatuses && decided > 0 ? Math.round((count / decided) * 100) : null;
           const isActive = Array.isArray(filter) && filter.length === k.statuses.length && k.statuses.every((s) => filter.includes(s));
           return (
             <button
@@ -205,6 +212,9 @@ export default function Home() {
               }`}
             >
               <p className={`text-2xl font-bold ${k.num}`}>{count}</p>
+              {rate !== null && (
+                <p className="text-[11px] text-gray-400 mt-0.5">합격률 {rate}% ({count}/{decided})</p>
+              )}
               <p className="text-xs text-gray-500 mt-1">{k.label}</p>
             </button>
           );
