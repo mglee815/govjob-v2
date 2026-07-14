@@ -38,20 +38,22 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
 
 // 배경은 모두 동일한 무채색(회색)으로 통일하고, 글자색만 상태별로 구분한다.
 // 채도 높은 형광색(민트 등)은 피하고 톤 다운된 색만 사용.
+// 모든 상태를 동일한 회색으로 통일 (구분은 그룹 섹션으로 이미 되어 있으므로 배지 자체는 무채색)
+const UNIFORM_STATUS_COLOR = "bg-gray-100 text-gray-600";
 export const STATUS_COLORS: Record<JobStatus, string> = {
-  monitoring:     "bg-gray-100 text-gray-600",
-  available:      "bg-gray-100 text-blue-700",
-  applied:        "bg-gray-100 text-indigo-700",
-  doc_fail:       "bg-gray-100 text-red-700",
-  written_wait:   "bg-gray-100 text-sky-700",
-  written_pass:   "bg-gray-100 text-orange-700",
-  written_fail:   "bg-gray-100 text-pink-700",
-  interview_wait: "bg-gray-100 text-violet-700",
-  interview_pass: "bg-gray-100 text-purple-700",
-  interview_fail: "bg-gray-100 text-rose-800",
-  final_pass:     "bg-gray-100 text-emerald-700",
-  withdrawn:      "bg-gray-100 text-gray-400",
-  expired:        "bg-gray-100 text-gray-400",
+  monitoring:     UNIFORM_STATUS_COLOR,
+  available:      UNIFORM_STATUS_COLOR,
+  applied:        UNIFORM_STATUS_COLOR,
+  doc_fail:       UNIFORM_STATUS_COLOR,
+  written_wait:   UNIFORM_STATUS_COLOR,
+  written_pass:   UNIFORM_STATUS_COLOR,
+  written_fail:   UNIFORM_STATUS_COLOR,
+  interview_wait: UNIFORM_STATUS_COLOR,
+  interview_pass: UNIFORM_STATUS_COLOR,
+  interview_fail: UNIFORM_STATUS_COLOR,
+  final_pass:     UNIFORM_STATUS_COLOR,
+  withdrawn:      UNIFORM_STATUS_COLOR,
+  expired:        UNIFORM_STATUS_COLOR,
 };
 
 export interface Job {

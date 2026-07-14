@@ -12,16 +12,6 @@ const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 const ORG_COL_WIDTH = 200;
 const STATUS_COL_WIDTH = 78;
 
-// v1 Oa 색상 맵 (fit 점수별 왼쪽 보더 색)
-const FIT_BORDER: Record<number, string> = {
-  5: "#48BB78",
-  4: "#4299E1",
-  3: "#ECC94B",
-  2: "#ED8936",
-  1: "#A0AEC0",
-  0: "#E2E8F0",
-};
-
 const COLORS = {
   star: "#BA7517",
   starEmpty: "#E2E8F0",
@@ -32,8 +22,8 @@ const COLORS = {
   metaText: "#374151",
   rowEven: "#FFFFFF",
   rowOdd: "#FAFAFA",
+  neutralBorder: "#E2E8F0",
   // 마감일 pill (v1 Sa() 함수와 동일한 구간·색상)
-  ongoing: { bg: "#E1F5EE", col: "#085041" },       // 상시
   undecided: { bg: "#F1EFE8", col: "#5F5E5A" },      // 미정
   closed: { bg: "#F1EFE8", col: "#777770" },         // 마감
   urgent: { bg: "#FCEBEB", col: "#A32D2D" },         // 오늘 · D-5 이내
@@ -54,24 +44,28 @@ const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: s
   { key: "expired",        label: "마감(미지원)",         statuses: ["expired"], accent: "#9CA3AF" },
 ];
 
-// v1 style 별점
-function FitStars({ fit, reason }: { fit: number | null; reason: string | null }) {
+// v1 style 별점 - 클릭하면 공고 상세로 이동
+function FitStars({ jobId, fit, reason }: { jobId: string; fit: number | null; reason: string | null }) {
   const n = fit ?? 0;
-  if (n === 0) return <span className="text-sm" style={{ color: "#A0AEC0" }}>-</span>;
   return (
-    <span
+    <Link
+      href={`/jobs/${jobId}`}
       title={reason ?? ""}
+      className="inline-block hover:opacity-70"
       style={{
-        color: COLORS.star,
+        color: n === 0 ? "#A0AEC0" : COLORS.star,
         letterSpacing: -1,
-        fontSize: 17,
-        cursor: "help",
+        fontSize: n === 0 ? 14 : 17,
         whiteSpace: "nowrap",
       }}
     >
-      {"★".repeat(n)}
-      <span style={{ color: COLORS.starEmpty }}>{"☆".repeat(5 - n)}</span>
-    </span>
+      {n === 0 ? "-" : (
+        <>
+          {"★".repeat(n)}
+          <span style={{ color: COLORS.starEmpty }}>{"☆".repeat(5 - n)}</span>
+        </>
+      )}
+    </Link>
   );
 }
 
@@ -104,12 +98,11 @@ function DeadlinePill({
   return <span className={cls} style={{ background: COLORS.distant.bg, color: COLORS.distant.col }}>D-{diff} · {mmdd}</span>;
 }
 
-// 다른 일정 컬럼용 간단 표기
-function fmtDate(d: string | null) {
+function fmtDateText(d: string | null) {
   const t = parseLocalDate(d);
-  if (t === null) return <span style={{ color: "#CBD5E0" }}>-</span>;
+  if (t === null) return "-";
   const dt = new Date(t);
-  return <span style={{ color: COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
+  return `${dt.getMonth() + 1}/${dt.getDate()}`;
 }
 
 // v1 nextDate 로직을 v2 상태값에 맞게 이식 (날짜는 옆 컬럼에 이미 나오므로 라벨 텍스트만 사용)
@@ -151,18 +144,74 @@ interface Props {
   onSortChange?: (field: SortField, dir: SortDir) => void;
 }
 
-// 더블클릭하면 말줄임된 전체 텍스트를 펼쳐 보여주는 셀
-function ExpandableCell({ text, widthClass }: { text: string | null; widthClass: string }) {
-  const [expanded, setExpanded] = useState(false);
+// 클릭하면 바로 편집 가능한 텍스트 셀 (상세페이지로 안 들어가도 이 표에서 바로 수정)
+function InlineTextCell({ value, onSave, widthClass }: { value: string | null; onSave: (v: string | null) => void; widthClass: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+
+  useEffect(() => {
+    setDraft(value ?? "");
+  }, [value]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={() => {
+          setEditing(false);
+          if (draft !== (value ?? "")) onSave(draft || null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") { setDraft(value ?? ""); setEditing(false); }
+        }}
+        className="text-sm border rounded px-1 py-0.5 w-full max-w-[160px]"
+        style={{ borderColor: "#A5B4FC" }}
+      />
+    );
+  }
+
   return (
     <span
-      className={`text-sm block cursor-default ${expanded ? "whitespace-normal break-words" : `truncate ${widthClass}`}`}
+      className={`text-sm block cursor-text truncate ${widthClass}`}
       style={{ color: COLORS.metaText }}
-      title={!expanded ? (text ?? undefined) : undefined}
-      onDoubleClick={() => setExpanded((v) => !v)}
+      title={value ?? undefined}
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
     >
-      {text ?? "-"}
+      {value ?? "-"}
     </span>
+  );
+}
+
+// 클릭하면 날짜 입력창으로 바뀌는 셀 (children은 평소 보여줄 표시용 내용)
+function InlineDateCell({ value, onSave, children }: { value: string | null; onSave: (v: string | null) => void; children: React.ReactNode }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        autoFocus
+        defaultValue={value ?? ""}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={(e) => {
+          setEditing(false);
+          const v = e.target.value || null;
+          if (v !== value) onSave(v);
+        }}
+        className="text-xs border rounded px-1 py-0.5 w-full"
+        style={{ borderColor: "#A5B4FC" }}
+      />
+    );
+  }
+
+  return (
+    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>
+      {children}
+    </div>
   );
 }
 
@@ -170,10 +219,30 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
   const [orgExpanded, setOrgExpanded] = useState(false);
+  const [fields, setFields] = useState({
+    duty: job.duty,
+    employment_type: job.employment_type,
+    work_location: job.work_location,
+    application_end: job.application_end,
+    doc_announcement_date: job.doc_announcement_date,
+    written_exam_date: job.written_exam_date,
+    interview_date: job.interview_date,
+    interview_date_2: job.interview_date_2,
+    announcement_date: job.announcement_date,
+  });
 
-  const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
-  const nextLabel = nextMilestone(job);
+  const nextLabel = nextMilestone({ ...job, ...fields, status });
   const bg = zebra ? COLORS.rowOdd : COLORS.rowEven;
+
+  async function saveField(field: keyof typeof fields, value: string | null) {
+    const { error } = await supabase.from("jobs").update({ [field]: value }).eq("id", job.id);
+    if (!error) {
+      setFields((f) => ({ ...f, [field]: value }));
+      onToast?.("저장되었습니다", "success");
+    } else {
+      onToast?.("저장 실패: " + error.message, "error");
+    }
+  }
 
   async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
@@ -192,10 +261,10 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
 
   return (
     <tr className="border-b hover:bg-indigo-50/40 transition-colors" style={{ borderColor: "#EDF2F7" }}>
-      {/* 기관명 - 스크롤해도 항상 보이도록 고정, 왼쪽 보더로 적합도 색 표시 */}
+      {/* 기관명 - 스크롤해도 항상 보이도록 고정 */}
       <td
         className="sticky left-0 z-10 py-1.5 pl-2 pr-1.5 whitespace-nowrap"
-        style={{ borderLeft: `4px solid ${borderColor}`, width: ORG_COL_WIDTH, minWidth: ORG_COL_WIDTH, background: bg }}
+        style={{ borderLeft: `4px solid ${COLORS.neutralBorder}`, width: ORG_COL_WIDTH, minWidth: ORG_COL_WIDTH, background: bg }}
         onDoubleClick={() => setOrgExpanded((v) => !v)}
       >
         <Link
@@ -229,24 +298,24 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         </select>
       </td>
 
-      {/* 이 지점부터는 배경이 지브라 패턴 (흰색/연회색) */}
+      {/* 이 지점부터는 배경이 지브라 패턴 (흰색/연회색). 적합도를 누르면 공고 상세로 이동 */}
       <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
-        <FitStars fit={job.fit} reason={job.fit_reason} />
+        <FitStars jobId={job.id} fit={job.fit} reason={job.fit_reason} />
       </td>
 
-      {/* 직무 */}
+      {/* 직무 (클릭해서 바로 수정) */}
       <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
-        <ExpandableCell text={job.duty} widthClass="max-w-[64px]" />
+        <InlineTextCell value={fields.duty} onSave={(v) => saveField("duty", v)} widthClass="max-w-[64px]" />
       </td>
 
       {/* 유형 */}
       <td className="py-1.5 px-1.5 hidden lg:table-cell" style={{ background: bg }}>
-        <ExpandableCell text={job.employment_type} widthClass="max-w-[64px]" />
+        <InlineTextCell value={fields.employment_type} onSave={(v) => saveField("employment_type", v)} widthClass="max-w-[64px]" />
       </td>
 
       {/* 지역 */}
       <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
-        <ExpandableCell text={job.work_location} widthClass="max-w-[64px]" />
+        <InlineTextCell value={fields.work_location} onSave={(v) => saveField("work_location", v)} widthClass="max-w-[64px]" />
       </td>
 
       {/* 다음 관문 (날짜는 옆 컬럼에 있으니 라벨만) */}
@@ -258,25 +327,47 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         )}
       </td>
 
-      {/* 서류마감 (pill) */}
+      {/* 서류마감 (pill, 클릭해서 날짜 수정) */}
       <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
-        <DeadlinePill date={job.application_end} compact />
+        <InlineDateCell value={fields.application_end} onSave={(v) => saveField("application_end", v)}>
+          <DeadlinePill date={fields.application_end} compact />
+        </InlineDateCell>
       </td>
 
       {/* 서류발표 */}
-      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg }}>{fmtDate(job.doc_announcement_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.doc_announcement_date} onSave={(v) => saveField("doc_announcement_date", v)}>
+          {fmtDateText(fields.doc_announcement_date)}
+        </InlineDateCell>
+      </td>
 
       {/* 필기 */}
-      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg }}>{fmtDate(job.written_exam_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.written_exam_date} onSave={(v) => saveField("written_exam_date", v)}>
+          {fmtDateText(fields.written_exam_date)}
+        </InlineDateCell>
+      </td>
 
       {/* 면접1 */}
-      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.interview_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.interview_date} onSave={(v) => saveField("interview_date", v)}>
+          {fmtDateText(fields.interview_date)}
+        </InlineDateCell>
+      </td>
 
       {/* 면접2 */}
-      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.interview_date_2)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.interview_date_2} onSave={(v) => saveField("interview_date_2", v)}>
+          {fmtDateText(fields.interview_date_2)}
+        </InlineDateCell>
+      </td>
 
       {/* 최종발표 */}
-      <td className="py-1.5 pl-1.5 pr-2 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.announcement_date)}</td>
+      <td className="py-1.5 pl-1.5 pr-2 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.announcement_date} onSave={(v) => saveField("announcement_date", v)}>
+          {fmtDateText(fields.announcement_date)}
+        </InlineDateCell>
+      </td>
     </tr>
   );
 }

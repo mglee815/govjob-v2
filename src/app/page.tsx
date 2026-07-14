@@ -28,7 +28,7 @@ const KPI_DEFS: {
     key: "doc_passed",
     label: "서류합격 (누적)",
     statuses: ["written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
-    bg: "bg-yellow-50", border: "border-yellow-200 hover:border-yellow-400", num: "text-yellow-600",
+    bg: "bg-green-50", border: "border-green-200 hover:border-green-400", num: "text-green-600",
   },
   {
     key: "written_passed",
@@ -67,9 +67,23 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "마감(미지원)", value: "expired" },
 ];
 
-// application_end 연도 기준 (없으면 소속 연도 판정 불가로 취급)
+// 연도 판정: application_end가 없으면 다른 일정 필드, 그래도 없으면 메모 속 "20xx" 연도를 최후 fallback으로 사용
+// (오래된 지원 이력 중 일부는 정확한 날짜가 기록되지 않고 메모에만 연도가 남아있는 경우가 있음)
 function jobYear(job: Job): string | null {
-  return job.application_end ? job.application_end.slice(0, 4) : null;
+  const dateFields = [
+    job.application_end,
+    job.written_exam_date,
+    job.interview_date,
+    job.interview_date_2,
+    job.doc_announcement_date,
+    job.announcement_date,
+  ];
+  for (const d of dateFields) {
+    if (d) return d.slice(0, 4);
+  }
+  const noteMatch = job.notes?.match(/20\d\d/);
+  if (noteMatch) return noteMatch[0];
+  return null;
 }
 
 const QUICK_SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
