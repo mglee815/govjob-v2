@@ -2,19 +2,21 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Job, JobStatus } from "@/lib/types";
-import { parseLocalDate, daysFromToday, TODAY_MS } from "@/lib/dates";
+import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
+import { parseLocalDate, TODAY_MS } from "@/lib/dates";
 import { SortField, SortDir, sortJobs } from "@/lib/sort";
 import JobTable from "@/components/JobTable";
 import Toast from "@/components/Toast";
 
-// v1(turkeyemily08-arch.github.io/govjob) 배포 번들의 je useMemo와 동일한 정의
-// - 올해 지원: 적합도 평가됨 + 서류마감이 올해(2026) + 아직 지원 전 단계가 아닌 상태
-// - 진행중: 실제 전형이 진행 중인 상태 (최종 확정 전)
-// - 불합격: 서류/필기/면접 불합격
-const NOT_APPLIED_STATUSES: JobStatus[] = ["monitoring", "check_needed", "available", "withdrawn", "watching", "expired"];
-const ACTIVE_STATUSES: JobStatus[] = ["available", "applied", "doc_pass", "written_wait", "written_pass", "interview_wait", "interview_pass"];
-const FAIL_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_fail"];
+const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
+
+const KPI_STYLES: Record<string, { bg: string; border: string; num: string }> = {
+  applied:        { bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600" },
+  doc_pass:       { bg: "bg-yellow-50", border: "border-yellow-200 hover:border-yellow-400", num: "text-yellow-600" },
+  written_pass:   { bg: "bg-orange-50", border: "border-orange-200 hover:border-orange-400", num: "text-orange-600" },
+  interview_pass: { bg: "bg-purple-50", border: "border-purple-200 hover:border-purple-400", num: "text-purple-600" },
+};
+
 // "지원가능" 집계에서 제외할 상태 (이미 지원했거나 더 이상 지원 대상이 아닌 건)
 const NOT_APPLICABLE_STATUSES: JobStatus[] = [
   "applied", "doc_pass", "doc_fail", "written_wait", "written_pass", "written_fail",
@@ -107,40 +109,21 @@ export default function Home() {
       !NOT_APPLICABLE_STATUSES.includes(j.status)
   ).length;
 
-  const ratedCount = jobs.filter((j) => (j.fit ?? 0) > 0).length;
-  const appliedThisYearCount = jobs.filter(
-    (j) =>
-      (j.fit ?? 0) > 0 &&
-      (j.application_end ?? "").startsWith("2026") &&
-      !NOT_APPLIED_STATUSES.includes(j.status)
-  ).length;
-  const activeCount = jobs.filter((j) => ACTIVE_STATUSES.includes(j.status)).length;
-  const urgentCount = jobs.filter((j) => {
-    const d = daysFromToday(j.application_end);
-    return d !== null && d >= 0 && d <= 5 && j.status === "available";
-  }).length;
-  const failedCount = jobs.filter((j) => FAIL_STATUSES.includes(j.status)).length;
-
-  const kpiCards = [
-    { key: "total", label: "적합도 평가됨", value: ratedCount, ring: "ring-blue-400", border: "border-blue-200 hover:border-blue-400", num: "text-blue-700" },
-    { key: "appliedYear", label: "올해 지원", value: appliedThisYearCount, ring: "ring-purple-400", border: "border-purple-200 hover:border-purple-400", num: "text-purple-700" },
-    { key: "active", label: "진행중", value: activeCount, ring: "ring-green-400", border: "border-green-200 hover:border-green-400", num: "text-green-700" },
-    { key: "urgent", label: "D-5 임박", value: urgentCount, ring: "ring-red-400", border: "border-red-200 hover:border-red-400", num: "text-red-700" },
-    { key: "failed", label: "불합격", value: failedCount, ring: "ring-gray-400", border: "border-gray-200 hover:border-gray-400", num: "text-gray-600" },
-  ];
-
   return (
     <main className="max-w-7xl mx-auto px-4 py-6">
-      {/* KPI 카드 (v1과 동일한 5개 지표) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-        {kpiCards.map((c) => (
-          <div
-            key={c.key}
-            className={`bg-white border-2 rounded-xl p-4 text-center transition-all ${c.border}`}
+      {/* KPI 카드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {KPI_STATUSES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(filter === s ? "all" : s)}
+            className={`${KPI_STYLES[s].bg} border-2 rounded-xl p-4 text-center transition-all ${KPI_STYLES[s].border} ${
+              filter === s ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
+            }`}
           >
-            <p className={`text-2xl font-bold ${c.num}`}>{c.value}</p>
-            <p className="text-xs text-gray-500 mt-1">{c.label}</p>
-          </div>
+            <p className={`text-2xl font-bold ${KPI_STYLES[s].num}`}>{stats[s] ?? 0}</p>
+            <p className="text-xs text-gray-500 mt-1">{STATUS_LABELS[s]}</p>
+          </button>
         ))}
       </div>
 
@@ -156,14 +139,14 @@ export default function Home() {
           className="w-full sm:w-56 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-gray-400"
         />
 
-        {/* 상태 필터 */}
-        <div className="flex flex-wrap gap-1.5 flex-1">
+        {/* 상태 필터 - 한 줄로 이어지며 가로 스크롤 */}
+        <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 flex-1 min-w-0">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setFilter(opt.value)}
               aria-label={`${opt.label} 필터`}
-              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+              className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
                 filter === opt.value
                   ? "bg-indigo-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"

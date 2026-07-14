@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -19,12 +19,7 @@ const FIT_BORDER: Record<number, string> = {
   0: "#E2E8F0",
 };
 
-// v1 실제 배포 번들(index-0FoaRhOZ.js)에서 추출한 정확한 hex 색상
 const COLORS = {
-  passBg: "#D6F5E8",
-  passText: "#0E6644",
-  failBg: "#FDDCDC",
-  failText: "#A32D2D",
   star: "#BA7517",
   starEmpty: "#E2E8F0",
   cardBorder: "#E2E8F0",
@@ -32,6 +27,8 @@ const COLORS = {
   headerText: "#718096",
   bodyText: "#374151",
   metaText: "#6B7280",
+  rowEven: "#FFFFFF",
+  rowOdd: "#FAFAFA",
   // 마감일 pill (v1 Sa() 함수와 동일한 구간·색상)
   ongoing: { bg: "#E1F5EE", col: "#085041" },       // 상시
   undecided: { bg: "#F1EFE8", col: "#5F5E5A" },      // 미정
@@ -41,36 +38,19 @@ const COLORS = {
   distant: { bg: "#E6F1FB", col: "#0C447C" },        // D-15 이상
 };
 
-// v1 ma()/_bg() 로직과 동일한 행 배경 그룹핑 (기관명/제목 셀 왼쪽 보더는 적합도색 그대로 유지)
-const GROUP_BG: Record<number, string> = {
-  1: "#EEF4FF", // 진행중 (서류제출·서류합격·필기응시·필기합격·면접예정·면접완료·최종합격)
-  2: "#F6F7F9", // 보류 (확인필요·다음공고대기)
-  3: "#F1F2F4", // 마감(미지원)
-  4: "#FCE8EA", // 서류불합격
-  5: "#EEE9F7", // 필기불합격
-  6: "#F4F5F7", // 면접불합격·최종불합격·적합도 미평가
-  7: "#FAF0F0", // 패스(미지원)
-};
-
-const IN_PROGRESS_STATUSES = new Set<JobStatus>([
-  "applied", "doc_pass", "written_wait", "written_pass", "interview_wait", "interview_pass", "final_pass",
-]);
-
-function v1Group(job: Job): number {
-  const s = job.status;
-  if (s === "withdrawn") return 7;
-  if (s === "doc_fail") return 4;
-  if (s === "written_fail") return 5;
-  if (s === "interview_fail") return 6;
-  if (s === "expired") return 3;
-  if ((job.fit ?? 0) === 0) return 6;
-  if (IN_PROGRESS_STATUSES.has(s)) return 1;
-  if (s === "check_needed" || s === "watching") return 2;
-  return 0;
-}
-
-const DIM_GROUPS = new Set([3, 4, 5, 6, 7]);
-const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
+// 공고를 상태별로 그룹핑 (접수중을 최우선으로 두어 마감 임박한 것부터 챙길 수 있게)
+const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: string }[] = [
+  { key: "available",      label: "접수중",              statuses: ["available"], accent: "#2B6CB0" },
+  { key: "check_needed",   label: "확인필요",             statuses: ["check_needed"], accent: "#B45309" },
+  { key: "in_progress",    label: "서류제출 · 필기응시",   statuses: ["applied", "written_wait"], accent: "#4338CA" },
+  { key: "passing",        label: "합격 진행중",          statuses: ["doc_pass", "written_pass", "interview_wait", "interview_pass", "final_pass"], accent: "#15803D" },
+  { key: "monitoring",     label: "모니터링 · 다음공고대기", statuses: ["monitoring", "watching"], accent: "#4A5568" },
+  { key: "doc_fail",       label: "서류불합격",           statuses: ["doc_fail"], accent: "#A32D2D" },
+  { key: "written_fail",   label: "필기불합격",           statuses: ["written_fail"], accent: "#BE185D" },
+  { key: "interview_fail", label: "면접불합격",           statuses: ["interview_fail"], accent: "#9F1239" },
+  { key: "withdrawn",      label: "패스(미지원)",         statuses: ["withdrawn"], accent: "#9CA3AF" },
+  { key: "expired",        label: "마감(미지원)",         statuses: ["expired"], accent: "#9CA3AF" },
+];
 
 // v1 style 별점
 function FitStars({ fit, reason }: { fit: number | null; reason: string | null }) {
@@ -92,6 +72,8 @@ function FitStars({ fit, reason }: { fit: number | null; reason: string | null }
     </span>
   );
 }
+
+const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
 
 // v1 style pill: 마감일/다음 관문 등에 사용
 function DeadlinePill({
@@ -128,11 +110,11 @@ function DeadlinePill({
 }
 
 // 다른 일정 컬럼용 간단 표기
-function fmtDate(d: string | null, textColor?: string) {
+function fmtDate(d: string | null) {
   const t = parseLocalDate(d);
   if (t === null) return <span style={{ color: "#CBD5E0" }}>-</span>;
   const dt = new Date(t);
-  return <span style={{ color: textColor ?? COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
+  return <span style={{ color: COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
 }
 
 // v1 nextDate 로직을 v2 상태값에 맞게 이식
@@ -174,21 +156,11 @@ interface Props {
   onSortChange?: (field: SortField, dir: SortDir) => void;
 }
 
-function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
+function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
 
-  const group = v1Group({ ...job, status });
-  const groupBg = GROUP_BG[group];
   const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
-
-  const rowStyle: React.CSSProperties = groupBg
-    ? { background: groupBg, opacity: DIM_GROUPS.has(group) ? 0.72 : 1 }
-    : {};
-  const hoverCls = !groupBg ? "hover:bg-indigo-50/40" : "";
-  const textColor: string | undefined = undefined;
-  const dateTextColor = COLORS.metaText;
-
   const next = nextMilestone(job);
 
   async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -208,15 +180,16 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
 
   return (
     <tr
-      className={`border-b transition-colors group ${hoverCls}`}
-      style={{ ...rowStyle, borderColor: "#EDF2F7" }}
+      className="border-b hover:bg-indigo-50/40 transition-colors"
+      style={{ background: zebra ? COLORS.rowOdd : COLORS.rowEven, borderColor: "#EDF2F7" }}
     >
       {/* 기관명 - 왼쪽 보더로 적합도 색 표시 */}
-      <td className="py-1 pl-2 pr-1.5 whitespace-nowrap" style={{ borderLeft: `4px solid ${borderColor}` }}>
+      <td className="py-1 pl-2 pr-1 whitespace-nowrap max-w-[92px] truncate" style={{ borderLeft: `4px solid ${borderColor}` }}>
         <Link
           href={`/jobs/${job.id}`}
+          title={job.organization ?? undefined}
           className="text-xs font-medium hover:underline"
-          style={{ color: textColor ?? COLORS.bodyText }}
+          style={{ color: COLORS.bodyText }}
         >
           {job.organization ?? "-"}
         </Link>
@@ -246,24 +219,24 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
 
       {/* 직무 */}
       <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.duty ?? "-"}</span>
+        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.duty ?? "-"}</span>
       </td>
 
       {/* 유형 */}
       <td className="py-1 px-1.5 whitespace-nowrap hidden lg:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.employment_type ?? "-"}</span>
+        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.employment_type ?? "-"}</span>
       </td>
 
       {/* 지역 */}
       <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: textColor ?? COLORS.metaText }}>{job.work_location ?? "-"}</span>
+        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.work_location ?? "-"}</span>
       </td>
 
       {/* 다음 관문 */}
       <td className="py-1 px-1.5 text-center whitespace-nowrap">
         {next ? (
           <div className="flex flex-col items-center gap-0.5">
-            <span className="text-[10px] font-semibold" style={{ color: textColor ?? "#4A5568" }}>{next.label}</span>
+            <span className="text-[10px] font-semibold" style={{ color: "#4A5568" }}>{next.label}</span>
             <DeadlinePill date={next.date} status={status} compact />
           </div>
         ) : (
@@ -277,26 +250,44 @@ function Row({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Prop
       </td>
 
       {/* 서류발표 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.doc_announcement_date, dateTextColor)}</td>
+      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.doc_announcement_date)}</td>
 
       {/* 필기 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.written_exam_date, dateTextColor)}</td>
+      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.written_exam_date)}</td>
 
       {/* 면접1 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date, dateTextColor)}</td>
+      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date)}</td>
 
       {/* 면접2 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date_2, dateTextColor)}</td>
+      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date_2)}</td>
 
       {/* 최종발표 */}
-      <td className="py-1 pl-1.5 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date, dateTextColor)}</td>
+      <td className="py-1 pl-1.5 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date)}</td>
+    </tr>
+  );
+}
+
+const COLSPAN = 13;
+
+function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
+  return (
+    <tr>
+      <td colSpan={COLSPAN} className="py-1 pl-2 pr-2" style={{ background: "#F7FAFC", borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
+        <span
+          className="text-[11px] font-bold tracking-wide"
+          style={{ color: accent }}
+        >
+          {label}
+        </span>
+        <span className="text-[11px] ml-1.5" style={{ color: COLORS.metaText }}>{count}건</span>
+      </td>
     </tr>
   );
 }
 
 export default function JobTable({ jobs, onStatusChange, onToast, sortField, sortDir, onSortChange }: Props) {
   const headers: { label: string; cls: string; responsive: string; sortField?: SortField }[] = [
-    { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization" },
+    { label: "기관명",     cls: "pl-2 pr-1 text-left",     responsive: "", sortField: "organization" },
     { label: "상태",       cls: "px-1.5 text-left",        responsive: "", sortField: "status" },
     { label: "적합도",     cls: "px-1.5 text-center",      responsive: "", sortField: "fit" },
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell" },
@@ -311,7 +302,15 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     { label: "최종발표",   cls: "pl-1.5 pr-2 text-center", responsive: "hidden xl:table-cell", sortField: "announcement_date" },
   ];
 
-  const [openHeader, setOpenHeader] = useState<string | null>(null);
+  // 헤더 클릭 한 번으로 오름차순/내림차순 토글 (같은 컬럼 재클릭 시 방향 반전)
+  const handleHeaderClick = (field: SortField) => {
+    if (!onSortChange) return;
+    if (sortField === field) {
+      onSortChange(field, sortDir === "asc" ? "desc" : "asc");
+    } else {
+      onSortChange(field, field === "fit" ? "desc" : "asc");
+    }
+  };
 
   // 상단 보조 스크롤바: 아래 테이블과 스크롤 위치를 동기화해
   // 매번 아래까지 내려가지 않아도 가로 스크롤을 조작할 수 있게 함
@@ -349,6 +348,14 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     syncing.current = false;
   }, []);
 
+  // 상태별 그룹으로 나누되, 그룹 내부에서는 상위에서 이미 적용된 정렬 순서를 유지
+  const groups = GROUP_DEFS.map((g) => ({
+    ...g,
+    jobs: jobs.filter((j) => g.statuses.includes(j.status)),
+  })).filter((g) => g.jobs.length > 0);
+
+  let rowIndex = 0;
+
   return (
     <div
       className="rounded-xl bg-white"
@@ -371,48 +378,24 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
         onScroll={handleBottomScroll}
         className="overflow-x-auto"
       >
-        <table className="w-full min-w-[480px]">
+        <table className="w-full min-w-[420px]">
           <thead>
             <tr style={{ background: COLORS.headerBg, borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
               {headers.map((h) => {
                 const isSortable = !!h.sortField;
                 const isActive = isSortable && sortField === h.sortField;
-                const isOpen = openHeader === h.label;
                 return (
                   <th
                     key={h.label}
-                    className={`relative py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}`}
+                    className={`py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}`}
                     style={{ color: isActive ? "#4F46E5" : COLORS.headerText }}
-                    onClick={isSortable ? () => setOpenHeader(isOpen ? null : h.label) : undefined}
+                    onClick={isSortable ? () => handleHeaderClick(h.sortField!) : undefined}
                   >
                     {h.label}
                     {isSortable && (
                       <span className="ml-0.5 text-[9px]">
-                        {isActive ? (sortDir === "asc" ? "▲" : "▼") : "▾"}
+                        {isActive ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
                       </span>
-                    )}
-                    {isOpen && h.sortField && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setOpenHeader(null); }} />
-                        <div
-                          className="absolute left-0 top-full z-20 mt-1 min-w-[92px] rounded-lg bg-white text-left normal-case font-normal shadow-lg border"
-                          style={{ borderColor: COLORS.cardBorder }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-indigo-50 rounded-t-lg"
-                            onClick={() => { onSortChange?.(h.sortField!, "asc"); setOpenHeader(null); }}
-                          >
-                            ▲ 오름차순
-                          </button>
-                          <button
-                            className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-indigo-50 rounded-b-lg"
-                            onClick={() => { onSortChange?.(h.sortField!, "desc"); setOpenHeader(null); }}
-                          >
-                            ▼ 내림차순
-                          </button>
-                        </div>
-                      </>
                     )}
                   </th>
                 );
@@ -420,8 +403,17 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job) => (
-              <Row key={job.id} job={job} onStatusChange={onStatusChange} onToast={onToast} />
+            {groups.map((g) => (
+              <Fragment key={g.key}>
+                <GroupHeaderRow label={g.label} count={g.jobs.length} accent={g.accent} />
+                {g.jobs.map((job) => {
+                  const zebra = rowIndex % 2 === 1;
+                  rowIndex += 1;
+                  return (
+                    <Row key={job.id} job={job} zebra={zebra} onStatusChange={onStatusChange} onToast={onToast} />
+                  );
+                })}
+              </Fragment>
             ))}
           </tbody>
         </table>
