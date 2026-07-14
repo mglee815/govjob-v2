@@ -9,6 +9,9 @@ import { SortField, SortDir } from "@/lib/sort";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
+const ORG_COL_WIDTH = 132;
+const STATUS_COL_WIDTH = 78;
+
 // v1 Oa 색상 맵 (fit 점수별 왼쪽 보더 색)
 const FIT_BORDER: Record<number, string> = {
   5: "#48BB78",
@@ -25,8 +28,8 @@ const COLORS = {
   cardBorder: "#E2E8F0",
   headerBg: "#F7FAFC",
   headerText: "#718096",
-  bodyText: "#374151",
-  metaText: "#6B7280",
+  bodyText: "#111827",
+  metaText: "#374151",
   rowEven: "#FFFFFF",
   rowOdd: "#FAFAFA",
   // 마감일 pill (v1 Sa() 함수와 동일한 구간·색상)
@@ -55,14 +58,14 @@ const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: s
 // v1 style 별점
 function FitStars({ fit, reason }: { fit: number | null; reason: string | null }) {
   const n = fit ?? 0;
-  if (n === 0) return <span className="text-xs" style={{ color: "#A0AEC0" }}>-</span>;
+  if (n === 0) return <span className="text-sm" style={{ color: "#A0AEC0" }}>-</span>;
   return (
     <span
       title={reason ?? ""}
       style={{
         color: COLORS.star,
         letterSpacing: -1,
-        fontSize: 15,
+        fontSize: 17,
         cursor: "help",
         whiteSpace: "nowrap",
       }}
@@ -75,7 +78,7 @@ function FitStars({ fit, reason }: { fit: number | null; reason: string | null }
 
 const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
 
-// v1 style pill: 마감일/다음 관문 등에 사용
+// v1 style pill: 서류마감 등에 사용
 function DeadlinePill({
   date,
   status,
@@ -86,7 +89,7 @@ function DeadlinePill({
   compact?: boolean;
 }) {
   const pad = compact ? "px-1.5 py-[1px]" : "px-2 py-0.5";
-  const cls = `inline-block ${pad} rounded text-[10px] font-medium whitespace-nowrap`;
+  const cls = `inline-block ${pad} rounded text-xs font-medium whitespace-nowrap`;
 
   if (!date) {
     if (status && WATCHING_STATUSES.has(status)) {
@@ -117,32 +120,32 @@ function fmtDate(d: string | null) {
   return <span style={{ color: COLORS.metaText }}>{dt.getMonth() + 1}/{dt.getDate()}</span>;
 }
 
-// v1 nextDate 로직을 v2 상태값에 맞게 이식
-function nextMilestone(job: Job): { label: string; date: string } | null {
+// v1 nextDate 로직을 v2 상태값에 맞게 이식 (날짜는 옆 컬럼에 이미 나오므로 라벨 텍스트만 사용)
+function nextMilestone(job: Job): string | null {
   const s = job.status;
   const { doc_announcement_date: da, written_exam_date: w, interview_date: i1, interview_date_2: i2, announcement_date: a, application_end: ae } = job;
 
   if (s === "applied") {
-    if (da) return { label: "서류발표", date: da };
-    if (w)  return { label: "필기", date: w };
-    if (a)  return { label: "발표", date: a };
+    if (da) return "서류발표";
+    if (w)  return "필기";
+    if (a)  return "발표";
   }
   if (s === "doc_pass" || s === "written_wait") {
-    if (w)  return { label: "필기", date: w };
-    if (i1) return { label: "면접1차", date: i1 };
-    if (a)  return { label: "발표", date: a };
+    if (w)  return "필기";
+    if (i1) return "면접1차";
+    if (a)  return "발표";
   }
   if (s === "written_pass" || s === "interview_wait") {
-    if (i1) return { label: "면접1차", date: i1 };
-    if (i2) return { label: "면접2차", date: i2 };
-    if (a)  return { label: "발표", date: a };
+    if (i1) return "면접1차";
+    if (i2) return "면접2차";
+    if (a)  return "발표";
   }
   if (s === "interview_pass") {
-    if (i2) return { label: "면접2차", date: i2 };
-    if (a)  return { label: "최종발표", date: a };
+    if (i2) return "면접2차";
+    if (a)  return "최종발표";
   }
   if (s === "monitoring" || s === "check_needed" || s === "available") {
-    if (ae) return { label: "서류마감", date: ae };
+    if (ae) return "서류마감";
   }
   return null;
 }
@@ -156,12 +159,29 @@ interface Props {
   onSortChange?: (field: SortField, dir: SortDir) => void;
 }
 
+// 더블클릭하면 말줄임된 전체 텍스트를 펼쳐 보여주는 셀
+function ExpandableCell({ text, widthClass }: { text: string | null; widthClass: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <span
+      className={`text-sm block cursor-default ${expanded ? "whitespace-normal break-words" : `truncate ${widthClass}`}`}
+      style={{ color: COLORS.metaText }}
+      title={!expanded ? (text ?? undefined) : undefined}
+      onDoubleClick={() => setExpanded((v) => !v)}
+    >
+      {text ?? "-"}
+    </span>
+  );
+}
+
 function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
+  const [orgExpanded, setOrgExpanded] = useState(false);
 
   const borderColor = FIT_BORDER[job.fit ?? 0] ?? COLORS.starEmpty;
-  const next = nextMilestone(job);
+  const nextLabel = nextMilestone(job);
+  const bg = zebra ? COLORS.rowOdd : COLORS.rowEven;
 
   async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
@@ -179,30 +199,35 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   }
 
   return (
-    <tr
-      className="border-b hover:bg-indigo-50/40 transition-colors"
-      style={{ background: zebra ? COLORS.rowOdd : COLORS.rowEven, borderColor: "#EDF2F7" }}
-    >
-      {/* 기관명 - 왼쪽 보더로 적합도 색 표시 */}
-      <td className="py-1 pl-2 pr-1 whitespace-nowrap max-w-[92px] truncate" style={{ borderLeft: `4px solid ${borderColor}` }}>
+    <tr className="border-b hover:bg-indigo-50/40 transition-colors" style={{ borderColor: "#EDF2F7" }}>
+      {/* 기관명 - 스크롤해도 항상 보이도록 고정, 왼쪽 보더로 적합도 색 표시 */}
+      <td
+        className="sticky left-0 z-10 py-1.5 pl-2 pr-1.5 whitespace-nowrap"
+        style={{ borderLeft: `4px solid ${borderColor}`, width: ORG_COL_WIDTH, minWidth: ORG_COL_WIDTH, background: bg }}
+        onDoubleClick={() => setOrgExpanded((v) => !v)}
+      >
         <Link
           href={`/jobs/${job.id}`}
-          title={job.organization ?? undefined}
-          className="text-xs font-medium hover:underline"
-          style={{ color: COLORS.bodyText }}
+          title={!orgExpanded ? (job.organization ?? undefined) : undefined}
+          className={`text-sm font-medium hover:underline block ${orgExpanded ? "whitespace-normal break-words" : "truncate"}`}
+          style={{ color: COLORS.bodyText, maxWidth: orgExpanded ? undefined : ORG_COL_WIDTH - 18 }}
         >
           {job.organization ?? "-"}
         </Link>
       </td>
 
-      {/* 상태 드롭다운 */}
-      <td className="py-1 px-1.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+      {/* 상태 드롭다운 - 기관명 옆에 고정 */}
+      <td
+        className="sticky z-10 py-1.5 px-1 whitespace-nowrap"
+        style={{ left: ORG_COL_WIDTH, width: STATUS_COL_WIDTH, minWidth: STATUS_COL_WIDTH, background: bg }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <select
           value={status}
           onChange={handleStatus}
           disabled={saving}
           aria-label={`${job.organization} 상태 변경`}
-          className={`text-xs rounded-lg px-1.5 py-0.5 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
+          className={`w-full text-xs rounded-lg px-1 py-1 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
         >
           {STATUSES.map(([val, label]) => (
             <option key={val} value={val} className="bg-white text-gray-900 font-normal">
@@ -212,57 +237,54 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         </select>
       </td>
 
-      {/* 적합도 */}
-      <td className="py-1 px-1.5 text-center whitespace-nowrap">
+      {/* 이 지점부터는 배경이 지브라 패턴 (흰색/연회색) */}
+      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
         <FitStars fit={job.fit} reason={job.fit_reason} />
       </td>
 
       {/* 직무 */}
-      <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.duty ?? "-"}</span>
+      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
+        <ExpandableCell text={job.duty} widthClass="max-w-[64px]" />
       </td>
 
       {/* 유형 */}
-      <td className="py-1 px-1.5 whitespace-nowrap hidden lg:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.employment_type ?? "-"}</span>
+      <td className="py-1.5 px-1.5 hidden lg:table-cell" style={{ background: bg }}>
+        <ExpandableCell text={job.employment_type} widthClass="max-w-[64px]" />
       </td>
 
       {/* 지역 */}
-      <td className="py-1 px-1.5 whitespace-nowrap hidden md:table-cell max-w-[140px] truncate">
-        <span className="text-xs" style={{ color: COLORS.metaText }}>{job.work_location ?? "-"}</span>
+      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
+        <ExpandableCell text={job.work_location} widthClass="max-w-[64px]" />
       </td>
 
-      {/* 다음 관문 */}
-      <td className="py-1 px-1.5 text-center whitespace-nowrap">
-        {next ? (
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="text-[10px] font-semibold" style={{ color: "#4A5568" }}>{next.label}</span>
-            <DeadlinePill date={next.date} status={status} compact />
-          </div>
+      {/* 다음 관문 (날짜는 옆 컬럼에 있으니 라벨만) */}
+      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
+        {nextLabel ? (
+          <span className="text-sm font-semibold" style={{ color: "#111827" }}>{nextLabel}</span>
         ) : (
-          <span style={{ color: "#CBD5E0" }} className="text-xs">-</span>
+          <span style={{ color: "#CBD5E0" }} className="text-sm">-</span>
         )}
       </td>
 
       {/* 서류마감 (pill) */}
-      <td className="py-1 px-1.5 text-center whitespace-nowrap">
+      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
         <DeadlinePill date={job.application_end} status={status} compact />
       </td>
 
       {/* 서류발표 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.doc_announcement_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg }}>{fmtDate(job.doc_announcement_date)}</td>
 
       {/* 필기 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden lg:table-cell">{fmtDate(job.written_exam_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg }}>{fmtDate(job.written_exam_date)}</td>
 
       {/* 면접1 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.interview_date)}</td>
 
       {/* 면접2 */}
-      <td className="py-1 px-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.interview_date_2)}</td>
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.interview_date_2)}</td>
 
       {/* 최종발표 */}
-      <td className="py-1 pl-1.5 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell">{fmtDate(job.announcement_date)}</td>
+      <td className="py-1.5 pl-1.5 pr-2 text-center text-sm whitespace-nowrap hidden xl:table-cell" style={{ background: bg }}>{fmtDate(job.announcement_date)}</td>
     </tr>
   );
 }
@@ -272,23 +294,21 @@ const COLSPAN = 13;
 function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
   return (
     <tr>
-      <td colSpan={COLSPAN} className="py-1 pl-2 pr-2" style={{ background: "#F7FAFC", borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
-        <span
-          className="text-[11px] font-bold tracking-wide"
-          style={{ color: accent }}
-        >
+      <td colSpan={COLSPAN} className="py-1.5 pl-2 pr-2" style={{ background: "#F7FAFC", borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
+        <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style={{ background: accent }} />
+        <span className="text-sm font-bold tracking-wide" style={{ color: "#111827" }}>
           {label}
         </span>
-        <span className="text-[11px] ml-1.5" style={{ color: COLORS.metaText }}>{count}건</span>
+        <span className="text-xs ml-1.5" style={{ color: COLORS.metaText }}>{count}건</span>
       </td>
     </tr>
   );
 }
 
 export default function JobTable({ jobs, onStatusChange, onToast, sortField, sortDir, onSortChange }: Props) {
-  const headers: { label: string; cls: string; responsive: string; sortField?: SortField }[] = [
-    { label: "기관명",     cls: "pl-2 pr-1 text-left",     responsive: "", sortField: "organization" },
-    { label: "상태",       cls: "px-1.5 text-left",        responsive: "", sortField: "status" },
+  const headers: { label: string; cls: string; responsive: string; sortField?: SortField; sticky?: number }[] = [
+    { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization", sticky: 0 },
+    { label: "상태",       cls: "px-1 text-left",          responsive: "", sortField: "status", sticky: ORG_COL_WIDTH },
     { label: "적합도",     cls: "px-1.5 text-center",      responsive: "", sortField: "fit" },
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell" },
     { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type" },
@@ -364,12 +384,12 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
         boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
       }}
     >
-      {/* 상단 스크롤바 (윈도우/작은 화면에서 아래까지 안 내려가도 가로 스크롤 가능) */}
+      {/* 상단 보조 스크롤바 (필요할 때만 표시됨) */}
       <div
         ref={topRef}
         onScroll={handleTopScroll}
         className="overflow-x-auto overflow-y-hidden rounded-t-xl"
-        style={{ height: 14 }}
+        style={{ height: 10 }}
       >
         <div ref={spacerRef} style={{ height: 1 }} />
       </div>
@@ -384,16 +404,19 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
               {headers.map((h) => {
                 const isSortable = !!h.sortField;
                 const isActive = isSortable && sortField === h.sortField;
+                const stickyStyle: React.CSSProperties = h.sticky !== undefined
+                  ? { left: h.sticky, background: COLORS.headerBg }
+                  : {};
                 return (
                   <th
                     key={h.label}
-                    className={`py-1.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}`}
-                    style={{ color: isActive ? "#4F46E5" : COLORS.headerText }}
+                    className={`py-2 text-[13px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""} ${h.sticky !== undefined ? "sticky z-20" : ""}`}
+                    style={{ color: isActive ? "#4F46E5" : COLORS.headerText, ...stickyStyle }}
                     onClick={isSortable ? () => handleHeaderClick(h.sortField!) : undefined}
                   >
                     {h.label}
                     {isSortable && (
-                      <span className="ml-0.5 text-[9px]">
+                      <span className="ml-0.5 text-[10px]">
                         {isActive ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
                       </span>
                     )}

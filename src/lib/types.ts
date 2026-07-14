@@ -42,21 +42,23 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   expired:        "마감(미지원)",
 };
 
+// 배경은 모두 동일한 무채색(회색)으로 통일하고, 글자색만 상태별로 구분한다.
+// 채도 높은 형광색(민트 등)은 피하고 톤 다운된 색만 사용.
 export const STATUS_COLORS: Record<JobStatus, string> = {
   monitoring:     "bg-gray-100 text-gray-600",
-  check_needed:   "bg-amber-50 text-amber-700",
-  available:      "bg-blue-100 text-blue-700",
-  watching:       "bg-sky-100 text-sky-700",
-  applied:        "bg-indigo-100 text-indigo-700",
-  doc_pass:       "bg-yellow-100 text-yellow-700",
-  doc_fail:       "bg-red-100 text-red-600",
-  written_wait:   "bg-teal-100 text-teal-700",
-  written_pass:   "bg-orange-100 text-orange-700",
-  written_fail:   "bg-pink-100 text-pink-700",
-  interview_wait: "bg-violet-100 text-violet-700",
-  interview_pass: "bg-purple-100 text-purple-700",
-  interview_fail: "bg-rose-200 text-rose-800",
-  final_pass:     "bg-green-100 text-green-700",
+  check_needed:   "bg-gray-100 text-amber-700",
+  available:      "bg-gray-100 text-blue-700",
+  watching:       "bg-gray-100 text-slate-600",
+  applied:        "bg-gray-100 text-indigo-700",
+  doc_pass:       "bg-gray-100 text-yellow-700",
+  doc_fail:       "bg-gray-100 text-red-700",
+  written_wait:   "bg-gray-100 text-sky-700",
+  written_pass:   "bg-gray-100 text-orange-700",
+  written_fail:   "bg-gray-100 text-pink-700",
+  interview_wait: "bg-gray-100 text-violet-700",
+  interview_pass: "bg-gray-100 text-purple-700",
+  interview_fail: "bg-gray-100 text-rose-800",
+  final_pass:     "bg-gray-100 text-emerald-700",
   withdrawn:      "bg-gray-100 text-gray-400",
   expired:        "bg-gray-100 text-gray-400",
 };

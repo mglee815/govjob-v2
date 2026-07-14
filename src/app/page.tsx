@@ -139,8 +139,11 @@ export default function Home() {
           className="w-full sm:w-56 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-gray-400"
         />
 
-        {/* 상태 필터 - 한 줄로 이어지며 가로 스크롤 */}
-        <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1 flex-1 min-w-0">
+        {/* 상태 필터 - 한 줄로 이어지며 가로 스크롤 (스크롤바는 숨겨서 다른 컨트롤과 높이를 맞춤) */}
+        <div
+          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto flex-1 min-w-0 h-8 [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none" }}
+        >
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
