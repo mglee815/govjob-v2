@@ -21,13 +21,13 @@ const KPI_DEFS: {
   {
     key: "submitted",
     label: "서류제출 (누적)",
-    statuses: ["applied", "doc_pass", "doc_fail", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["applied", "doc_fail", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
     bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600",
   },
   {
     key: "doc_passed",
     label: "서류합격 (누적)",
-    statuses: ["doc_pass", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
     bg: "bg-yellow-50", border: "border-yellow-200 hover:border-yellow-400", num: "text-yellow-600",
   },
   {
@@ -46,18 +46,15 @@ const KPI_DEFS: {
 
 // "지원가능" 집계에서 제외할 상태 (이미 지원했거나 더 이상 지원 대상이 아닌 건)
 const NOT_APPLICABLE_STATUSES: JobStatus[] = [
-  "applied", "doc_pass", "doc_fail", "written_wait", "written_pass", "written_fail",
+  "applied", "doc_fail", "written_wait", "written_pass", "written_fail",
   "interview_wait", "interview_pass", "interview_fail", "final_pass", "withdrawn", "expired",
 ];
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "전체",        value: "all" },
   { label: "모니터링",    value: "monitoring" },
-  { label: "확인필요",    value: "check_needed" },
   { label: "접수중",      value: "available" },
-  { label: "다음공고대기", value: "watching" },
   { label: "서류제출",    value: "applied" },
-  { label: "서류합격",    value: "doc_pass" },
   { label: "서류불합격",  value: "doc_fail" },
   { label: "필기대기",    value: "written_wait" },
   { label: "필기합격",    value: "written_pass" },
@@ -70,15 +67,23 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "마감(미지원)", value: "expired" },
 ];
 
+// application_end 연도 기준 (없으면 소속 연도 판정 불가로 취급)
+function jobYear(job: Job): string | null {
+  return job.application_end ? job.application_end.slice(0, 4) : null;
+}
+
 const QUICK_SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
   { label: "마감임박순", field: "application_end", dir: "asc" },
   { label: "필기임박순", field: "written_exam_date", dir: "asc" },
   { label: "등록일순",   field: "created_at", dir: "desc" },
 ];
 
+const CURRENT_YEAR = String(new Date().getFullYear());
+
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<JobStatus[] | "all">("all");
+  const [yearFilter, setYearFilter] = useState<string>(CURRENT_YEAR);
   const [sortField, setSortField] = useState<SortField>("application_end");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [search, setSearch] = useState("");
@@ -103,8 +108,18 @@ export default function Home() {
     setToast({ msg, type });
   }, []);
 
+  // 연도 필터 (기본값: 올해) - 서류마감 연도 기준. 날짜가 없는 건(상시 등)은 "전체"에서만 노출
+  const availableYears = useMemo(
+    () => Array.from(new Set(jobs.map(jobYear).filter((y): y is string => !!y))).sort().reverse(),
+    [jobs]
+  );
+  const yearFilteredJobs = useMemo(
+    () => (yearFilter === "all" ? jobs : jobs.filter((j) => jobYear(j) === yearFilter)),
+    [jobs, yearFilter]
+  );
+
   const filtered = useMemo(() => {
-    let list = filter === "all" ? jobs : jobs.filter((j) => filter.includes(j.status));
+    let list = filter === "all" ? yearFilteredJobs : yearFilteredJobs.filter((j) => filter.includes(j.status));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
@@ -123,13 +138,13 @@ export default function Home() {
       );
     }
     return sortJobs(list, sortField, sortDir);
-  }, [jobs, filter, search, availableOnly, sortField, sortDir]);
+  }, [yearFilteredJobs, filter, search, availableOnly, sortField, sortDir]);
 
   const stats: Record<string, number> = {};
-  for (const j of jobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
+  for (const j of yearFilteredJobs) stats[j.status] = (stats[j.status] ?? 0) + 1;
 
-  // 지원가능: 아직 지원하지 않은(모니터링·확인필요·접수중·다음공고대기) 건 중 마감 전인 것만
-  const availableCount = jobs.filter(
+  // 지원가능: 아직 지원하지 않은(모니터링·접수중) 건 중 마감 전인 것만
+  const availableCount = yearFilteredJobs.filter(
     (j) =>
       j.application_end &&
       (parseLocalDate(j.application_end) ?? 0) >= TODAY_MS &&
@@ -138,10 +153,34 @@ export default function Home() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-6">
+      {/* 연도 필터 - 기본은 올해만, 작년 이전 건은 해당 연도를 눌러야 보임 */}
+      <div className="flex items-center gap-1.5 mb-3">
+        <span className="text-xs text-gray-400 mr-1">연도</span>
+        <button
+          onClick={() => setYearFilter("all")}
+          className={`px-3 py-1 rounded-full text-sm transition-colors ${
+            yearFilter === "all" ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          전체 연도
+        </button>
+        {availableYears.map((y) => (
+          <button
+            key={y}
+            onClick={() => setYearFilter(y)}
+            className={`px-3 py-1 rounded-full text-sm transition-colors ${
+              yearFilter === y ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {y}년
+          </button>
+        ))}
+      </div>
+
       {/* KPI 카드 - 단계별 누적 건수 (해당 단계 도달 이후 더 진행/탈락했어도 포함) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {KPI_DEFS.map((k) => {
-          const count = jobs.filter((j) => k.statuses.includes(j.status)).length;
+          const count = yearFilteredJobs.filter((j) => k.statuses.includes(j.status)).length;
           const isActive = Array.isArray(filter) && filter.length === k.statuses.length && k.statuses.every((s) => filter.includes(s));
           return (
             <button

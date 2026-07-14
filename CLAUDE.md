@@ -213,11 +213,8 @@ SUPABASE_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 **상태값 (status)**
 ```
 monitoring      모니터링
-check_needed    확인필요
 available       접수중
-watching        다음공고대기
 applied         서류제출
-doc_pass        서류합격
 doc_fail        서류불합격
 written_wait    필기대기
 written_pass    필기합격

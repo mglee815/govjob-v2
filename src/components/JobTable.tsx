@@ -9,7 +9,7 @@ import { SortField, SortDir } from "@/lib/sort";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
-const ORG_COL_WIDTH = 132;
+const ORG_COL_WIDTH = 200;
 const STATUS_COL_WIDTH = 78;
 
 // v1 Oa 색상 맵 (fit 점수별 왼쪽 보더 색)
@@ -44,10 +44,9 @@ const COLORS = {
 // 공고를 상태별로 그룹핑 (접수중을 최우선으로 두어 마감 임박한 것부터 챙길 수 있게)
 const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: string }[] = [
   { key: "available",      label: "접수중",              statuses: ["available"], accent: "#2B6CB0" },
-  { key: "check_needed",   label: "확인필요",             statuses: ["check_needed"], accent: "#B45309" },
   { key: "in_progress",    label: "서류제출 · 필기응시",   statuses: ["applied", "written_wait"], accent: "#4338CA" },
-  { key: "passing",        label: "합격 진행중",          statuses: ["doc_pass", "written_pass", "interview_wait", "interview_pass", "final_pass"], accent: "#15803D" },
-  { key: "monitoring",     label: "모니터링 · 다음공고대기", statuses: ["monitoring", "watching"], accent: "#4A5568" },
+  { key: "passing",        label: "합격 진행중",          statuses: ["written_pass", "interview_wait", "interview_pass", "final_pass"], accent: "#15803D" },
+  { key: "monitoring",     label: "모니터링",            statuses: ["monitoring"], accent: "#4A5568" },
   { key: "doc_fail",       label: "서류불합격",           statuses: ["doc_fail"], accent: "#A32D2D" },
   { key: "written_fail",   label: "필기불합격",           statuses: ["written_fail"], accent: "#BE185D" },
   { key: "interview_fail", label: "면접불합격",           statuses: ["interview_fail"], accent: "#9F1239" },
@@ -76,25 +75,18 @@ function FitStars({ fit, reason }: { fit: number | null; reason: string | null }
   );
 }
 
-const WATCHING_STATUSES = new Set<JobStatus>(["watching"]);
-
 // v1 style pill: 서류마감 등에 사용
 function DeadlinePill({
   date,
-  status,
   compact,
 }: {
   date: string | null;
-  status?: JobStatus;
   compact?: boolean;
 }) {
   const pad = compact ? "px-1.5 py-[1px]" : "px-2 py-0.5";
   const cls = `inline-block ${pad} rounded text-xs font-medium whitespace-nowrap`;
 
   if (!date) {
-    if (status && WATCHING_STATUSES.has(status)) {
-      return <span className={cls} style={{ background: COLORS.ongoing.bg, color: COLORS.ongoing.col }}>상시</span>;
-    }
     return <span className={cls} style={{ background: COLORS.undecided.bg, color: COLORS.undecided.col }}>미정</span>;
   }
 
@@ -130,7 +122,7 @@ function nextMilestone(job: Job): string | null {
     if (w)  return "필기";
     if (a)  return "발표";
   }
-  if (s === "doc_pass" || s === "written_wait") {
+  if (s === "written_wait") {
     if (w)  return "필기";
     if (i1) return "면접1차";
     if (a)  return "발표";
@@ -144,7 +136,7 @@ function nextMilestone(job: Job): string | null {
     if (i2) return "면접2차";
     if (a)  return "최종발표";
   }
-  if (s === "monitoring" || s === "check_needed" || s === "available") {
+  if (s === "monitoring" || s === "available") {
     if (ae) return "서류마감";
   }
   return null;
@@ -268,7 +260,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
 
       {/* 서류마감 (pill) */}
       <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
-        <DeadlinePill date={job.application_end} status={status} compact />
+        <DeadlinePill date={job.application_end} compact />
       </td>
 
       {/* 서류발표 */}

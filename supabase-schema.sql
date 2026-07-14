@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   notes TEXT,                 -- 내 메모
   status TEXT DEFAULT 'monitoring' CHECK (
     status IN (
-      'monitoring', 'check_needed', 'available', 'watching',
-      'applied', 'doc_pass', 'doc_fail',
+      'monitoring', 'available',
+      'applied', 'doc_fail',
       'written_wait', 'written_pass', 'written_fail',
       'interview_wait', 'interview_pass', 'interview_fail',
       'final_pass', 'withdrawn', 'expired'

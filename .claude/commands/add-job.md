@@ -191,10 +191,9 @@ JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다.
 - 기본값: `monitoring` (모니터링)
 - 사용자가 명시하면 변경:
   - `monitoring` (모니터링)
-  - `check_needed` (확인필요)
   - `available` (접수중)
   - `applied` (서류제출)
-  - 기타 17개 상태값 참고: `src/lib/types.ts`
+  - 기타 상태값 참고: `src/lib/types.ts`
 
 ## 예시 호출
 

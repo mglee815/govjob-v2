@@ -1,13 +1,10 @@
 export type JobStatus =
   // 초기
   | "monitoring"     // 모니터링
-  | "check_needed"   // 확인필요
   | "available"      // 접수중
-  | "watching"       // 다음공고대기
   // 지원
   | "applied"        // 서류제출
   // 서류
-  | "doc_pass"       // 서류합격
   | "doc_fail"       // 서류불합격
   // 필기
   | "written_wait"   // 필기대기
@@ -25,11 +22,8 @@ export type JobStatus =
 
 export const STATUS_LABELS: Record<JobStatus, string> = {
   monitoring:     "모니터링",
-  check_needed:   "확인필요",
   available:      "접수중",
-  watching:       "다음공고대기",
   applied:        "서류제출",
-  doc_pass:       "서류합격",
   doc_fail:       "서류불합격",
   written_wait:   "필기대기",
   written_pass:   "필기합격",
@@ -46,11 +40,8 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
 // 채도 높은 형광색(민트 등)은 피하고 톤 다운된 색만 사용.
 export const STATUS_COLORS: Record<JobStatus, string> = {
   monitoring:     "bg-gray-100 text-gray-600",
-  check_needed:   "bg-gray-100 text-amber-700",
   available:      "bg-gray-100 text-blue-700",
-  watching:       "bg-gray-100 text-slate-600",
   applied:        "bg-gray-100 text-indigo-700",
-  doc_pass:       "bg-gray-100 text-yellow-700",
   doc_fail:       "bg-gray-100 text-red-700",
   written_wait:   "bg-gray-100 text-sky-700",
   written_pass:   "bg-gray-100 text-orange-700",
