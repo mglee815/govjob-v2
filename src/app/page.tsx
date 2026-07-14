@@ -2,20 +2,47 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
+import { Job, JobStatus } from "@/lib/types";
 import { parseLocalDate, TODAY_MS } from "@/lib/dates";
 import { SortField, SortDir, sortJobs } from "@/lib/sort";
 import JobTable from "@/components/JobTable";
 import Toast from "@/components/Toast";
 
-const KPI_STATUSES: JobStatus[] = ["applied", "doc_pass", "written_pass", "interview_pass"];
-
-const KPI_STYLES: Record<string, { bg: string; border: string; num: string }> = {
-  applied:        { bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600" },
-  doc_pass:       { bg: "bg-yellow-50", border: "border-yellow-200 hover:border-yellow-400", num: "text-yellow-600" },
-  written_pass:   { bg: "bg-orange-50", border: "border-orange-200 hover:border-orange-400", num: "text-orange-600" },
-  interview_pass: { bg: "bg-purple-50", border: "border-purple-200 hover:border-purple-400", num: "text-purple-600" },
-};
+// KPI 카드는 "현재 상태"가 아니라 "그 단계까지 도달했던 누적 건수"를 보여준다.
+// 예) 서류합격 이후 필기에서 떨어졌어도(written_fail) 서류는 합격했던 것이므로 "서류합격" 누적 건수에는 포함된다.
+const KPI_DEFS: {
+  key: string;
+  label: string;
+  statuses: JobStatus[];
+  bg: string;
+  border: string;
+  num: string;
+}[] = [
+  {
+    key: "submitted",
+    label: "서류제출 (누적)",
+    statuses: ["applied", "doc_pass", "doc_fail", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600",
+  },
+  {
+    key: "doc_passed",
+    label: "서류합격 (누적)",
+    statuses: ["doc_pass", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    bg: "bg-yellow-50", border: "border-yellow-200 hover:border-yellow-400", num: "text-yellow-600",
+  },
+  {
+    key: "written_passed",
+    label: "필기합격 (누적)",
+    statuses: ["written_pass", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    bg: "bg-orange-50", border: "border-orange-200 hover:border-orange-400", num: "text-orange-600",
+  },
+  {
+    key: "interview_passed",
+    label: "면접합격 (누적)",
+    statuses: ["interview_pass", "final_pass"],
+    bg: "bg-purple-50", border: "border-purple-200 hover:border-purple-400", num: "text-purple-600",
+  },
+];
 
 // "지원가능" 집계에서 제외할 상태 (이미 지원했거나 더 이상 지원 대상이 아닌 건)
 const NOT_APPLICABLE_STATUSES: JobStatus[] = [
@@ -51,7 +78,7 @@ const QUICK_SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = 
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [filter, setFilter] = useState<JobStatus | "all">("all");
+  const [filter, setFilter] = useState<JobStatus[] | "all">("all");
   const [sortField, setSortField] = useState<SortField>("application_end");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [search, setSearch] = useState("");
@@ -77,7 +104,7 @@ export default function Home() {
   }, []);
 
   const filtered = useMemo(() => {
-    let list = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+    let list = filter === "all" ? jobs : jobs.filter((j) => filter.includes(j.status));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
@@ -111,20 +138,24 @@ export default function Home() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-6">
-      {/* KPI 카드 */}
+      {/* KPI 카드 - 단계별 누적 건수 (해당 단계 도달 이후 더 진행/탈락했어도 포함) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {KPI_STATUSES.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(filter === s ? "all" : s)}
-            className={`${KPI_STYLES[s].bg} border-2 rounded-xl p-4 text-center transition-all ${KPI_STYLES[s].border} ${
-              filter === s ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
-            }`}
-          >
-            <p className={`text-2xl font-bold ${KPI_STYLES[s].num}`}>{stats[s] ?? 0}</p>
-            <p className="text-xs text-gray-500 mt-1">{STATUS_LABELS[s]}</p>
-          </button>
-        ))}
+        {KPI_DEFS.map((k) => {
+          const count = jobs.filter((j) => k.statuses.includes(j.status)).length;
+          const isActive = Array.isArray(filter) && filter.length === k.statuses.length && k.statuses.every((s) => filter.includes(s));
+          return (
+            <button
+              key={k.key}
+              onClick={() => setFilter(isActive ? "all" : k.statuses)}
+              className={`${k.bg} border-2 rounded-xl p-4 text-center transition-all ${k.border} ${
+                isActive ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
+              }`}
+            >
+              <p className={`text-2xl font-bold ${k.num}`}>{count}</p>
+              <p className="text-xs text-gray-500 mt-1">{k.label}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* 검색 & 필터 & 정렬 */}
@@ -144,21 +175,24 @@ export default function Home() {
           className="flex flex-nowrap items-center gap-1.5 overflow-x-auto flex-1 min-w-0 h-8 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none" }}
         >
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setFilter(opt.value)}
-              aria-label={`${opt.label} 필터`}
-              className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
-                filter === opt.value
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {opt.label}
-              {opt.value !== "all" && stats[opt.value] ? ` (${stats[opt.value]})` : ""}
-            </button>
-          ))}
+          {FILTER_OPTIONS.map((opt) => {
+            const isActive = opt.value === "all" ? filter === "all" : Array.isArray(filter) && filter.length === 1 && filter[0] === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setFilter(opt.value === "all" ? "all" : [opt.value])}
+                aria-label={`${opt.label} 필터`}
+                className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
+                  isActive
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {opt.label}
+                {opt.value !== "all" && stats[opt.value] ? ` (${stats[opt.value]})` : ""}
+              </button>
+            );
+          })}
         </div>
 
         {/* 지원가능 토글 */}
