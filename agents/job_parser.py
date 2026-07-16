@@ -40,6 +40,8 @@ JSON 외 다른 텍스트는 절대 출력하지 마세요.
 - 없는 정보는 null
 - eligibility: 지원 자격 전체 (학력, 경력, 우대사항 포함)
 - selection_method: 전형 단계 (서류→필기→면접 순서 포함)
+- doc_screening_ratio: 서류전형 배수 (원문 표현 그대로, 예: "3배수", 없으면 null)
+- written_exam_ratio: 필기시험 배수 (원문 표현 그대로, 예: "2배수", 없으면 null)
 
 반환 JSON 스키마:
 {
@@ -50,6 +52,8 @@ JSON 외 다른 텍스트는 절대 출력하지 마세요.
   "eligibility": "지원자격 전체 텍스트",
   "selection_method": "선발방식 설명",
   "headcount": null,
+  "doc_screening_ratio": null,
+  "written_exam_ratio": null,
   "salary": "급여/보수 정보",
   "application_start": null,
   "application_end": null,

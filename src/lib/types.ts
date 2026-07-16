@@ -69,6 +69,8 @@ export interface Job {
   eligibility: string | null;
   selection_method: string | null;
   headcount: number | null;
+  doc_screening_ratio: string | null;
+  written_exam_ratio: string | null;
   salary: string | null;
   application_start: string | null;
   application_end: string | null;

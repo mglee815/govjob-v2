@@ -109,6 +109,8 @@ read_page/get_page_text로도 정보가 부족하면 (이미지 기반 공고, P
 - `eligibility`: 지원자격 전체 (학력, 경력 인정범위, 우대사항 포함) — **경력 인정범위는 반드시 원문 문구 포함**
 - `selection_method`: 선발 방식 및 단계 (서류→NCS 필기→면접, 서류·면접 비중 등)
 - `headcount`: 선발인원 (숫자만, 없으면 null)
+- `doc_screening_ratio`: 서류전형 배수 (예: "3배수", "5배수 내외" — 원문 표현 그대로, 없으면 null)
+- `written_exam_ratio`: 필기시험 배수 (예: "2배수" — 원문 표현 그대로, 없으면 null)
 - `salary`: 급여/보수 정보
 - `application_start`: 접수 시작일 (YYYY-MM-DD, 없으면 null)
 - `application_end`: 접수 마감일 (YYYY-MM-DD, 없으면 null)
@@ -182,7 +184,7 @@ curl -s -X POST "https://yjxjwnqirtihqnfhrprj.supabase.co/rest/v1/jobs" \
   -d '<JSON 데이터>'
 ```
 
-JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다.
+JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다. 서류/필기 배수 정보가 공고에 있으면 `doc_screening_ratio`, `written_exam_ratio`도 함께 포함합니다.
 
 ### 7. 완료 보고
 저장된 공고의 제목, 기관명, 마감일, 적합도(★★★★☆ 4점), fit_reason을 알려줍니다. 대시보드 URL: https://govjob-v2.vercel.app

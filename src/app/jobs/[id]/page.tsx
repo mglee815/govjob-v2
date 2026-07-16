@@ -156,6 +156,8 @@ export default function JobDetailPage() {
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">자격 & 선발</h2>
           <Row label="지원자격" value={job.eligibility} />
           <Row label="선발방식" value={job.selection_method} />
+        <Row label="서류배수" value={job.doc_screening_ratio} />
+        <Row label="필기배수" value={job.written_exam_ratio} />
         </div>
       )}
 

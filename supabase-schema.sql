@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   eligibility TEXT,           -- 지원자격
   selection_method TEXT,      -- 선발방식
   headcount INTEGER,          -- 선발인원
+  doc_screening_ratio TEXT,   -- 서류전형 배수 (예: "3배수", "5배수 내외")
+  written_exam_ratio TEXT,    -- 필기시험 배수 (예: "2배수")
   salary TEXT,                -- 급여/보수
   application_start DATE,     -- 접수시작일
   application_end DATE,       -- 접수마감일

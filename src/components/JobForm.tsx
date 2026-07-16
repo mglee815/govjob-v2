@@ -32,6 +32,8 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     eligibility: initialData.eligibility ?? "",
     selection_method: initialData.selection_method ?? "",
     headcount: initialData.headcount ?? null,
+    doc_screening_ratio: initialData.doc_screening_ratio ?? "",
+    written_exam_ratio: initialData.written_exam_ratio ?? "",
     salary: initialData.salary ?? "",
     application_start: initialData.application_start ?? "",
     application_end: initialData.application_end ?? "",
@@ -95,6 +97,8 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       work_location: form.work_location || null,
       eligibility: form.eligibility || null,
       selection_method: form.selection_method || null,
+      doc_screening_ratio: form.doc_screening_ratio || null,
+      written_exam_ratio: form.written_exam_ratio || null,
       salary: form.salary || null,
       notes: form.notes || null,
     };
@@ -280,6 +284,26 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
               className="input"
               placeholder="예) 서류전형 → 필기시험 → 면접전형"
             />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">서류배수</label>
+              <input
+                value={form.doc_screening_ratio ?? ""}
+                onChange={(e) => set("doc_screening_ratio", e.target.value)}
+                className="input"
+                placeholder="예) 3배수"
+              />
+            </div>
+            <div>
+              <label className="label">필기배수</label>
+              <input
+                value={form.written_exam_ratio ?? ""}
+                onChange={(e) => set("written_exam_ratio", e.target.value)}
+                className="input"
+                placeholder="예) 2배수"
+              />
+            </div>
           </div>
         </div>
       </section>
