@@ -11,6 +11,9 @@ const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
 const ORG_COL_WIDTH = 200;
 const STATUS_COL_WIDTH = 78;
+const DUTY_COL_WIDTH = 190;
+const TYPE_COL_WIDTH = 64;
+const REGION_COL_WIDTH = 140;
 
 const COLORS = {
   star: "#BA7517",
@@ -304,19 +307,19 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         <FitStars jobId={job.id} fit={job.fit} reason={job.fit_reason} />
       </td>
 
-      {/* 직무 (클릭해서 바로 수정) - 날짜 컬럼을 줄인 만큼 여유를 줌 */}
-      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
-        <InlineTextCell value={fields.duty} onSave={(v) => saveField("duty", v)} widthClass="max-w-[190px]" />
+      {/* 직무 (클릭해서 바로 수정) - td 자체에 고정폭을 줘서 잘리는 지점과 칸 끝이 정확히 일치하게 함 */}
+      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg, width: DUTY_COL_WIDTH, minWidth: DUTY_COL_WIDTH, maxWidth: DUTY_COL_WIDTH }}>
+        <InlineTextCell value={fields.duty} onSave={(v) => saveField("duty", v)} widthClass="w-full" />
       </td>
 
-      {/* 유형 - 정규직/계약직 등 짧은 값이라 폭 그대로 */}
-      <td className="py-1.5 px-1.5 hidden lg:table-cell" style={{ background: bg }}>
-        <InlineTextCell value={fields.employment_type} onSave={(v) => saveField("employment_type", v)} widthClass="max-w-[56px]" />
+      {/* 유형 */}
+      <td className="py-1.5 px-1.5 hidden lg:table-cell" style={{ background: bg, width: TYPE_COL_WIDTH, minWidth: TYPE_COL_WIDTH, maxWidth: TYPE_COL_WIDTH }}>
+        <InlineTextCell value={fields.employment_type} onSave={(v) => saveField("employment_type", v)} widthClass="w-full" />
       </td>
 
       {/* 지역 */}
-      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg }}>
-        <InlineTextCell value={fields.work_location} onSave={(v) => saveField("work_location", v)} widthClass="max-w-[130px]" />
+      <td className="py-1.5 px-1.5 hidden md:table-cell" style={{ background: bg, width: REGION_COL_WIDTH, minWidth: REGION_COL_WIDTH, maxWidth: REGION_COL_WIDTH }}>
+        <InlineTextCell value={fields.work_location} onSave={(v) => saveField("work_location", v)} widthClass="w-full" />
       </td>
 
       {/* 다음 관문 (날짜는 옆 컬럼에 있으니 라벨만) */}
@@ -397,13 +400,13 @@ function GroupHeaderRow({ label, count, accent }: { label: string; count: number
 }
 
 export default function JobTable({ jobs, onStatusChange, onToast, sortField, sortDir, onSortChange }: Props) {
-  const headers: { label: string; cls: string; responsive: string; sortField?: SortField; sticky?: number }[] = [
+  const headers: { label: string; cls: string; responsive: string; sortField?: SortField; sticky?: number; width?: number }[] = [
     { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization", sticky: 0 },
     { label: "상태",       cls: "px-1 text-left",          responsive: "", sortField: "status", sticky: ORG_COL_WIDTH },
     { label: "적합도",     cls: "px-1.5 text-center",      responsive: "", sortField: "fit" },
-    { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell" },
-    { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type" },
-    { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location" },
+    { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", width: DUTY_COL_WIDTH },
+    { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type", width: TYPE_COL_WIDTH },
+    { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location", width: REGION_COL_WIDTH },
     { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "" },
     { label: "서류접수",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "application_start" },
     { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end" },
@@ -499,11 +502,14 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
                 const stickyStyle: React.CSSProperties = h.sticky !== undefined
                   ? { left: h.sticky, background: COLORS.headerBg }
                   : {};
+                const widthStyle: React.CSSProperties = h.width !== undefined
+                  ? { width: h.width, minWidth: h.width, maxWidth: h.width }
+                  : {};
                 return (
                   <th
                     key={h.label}
                     className={`py-2 text-[13px] font-semibold uppercase tracking-wide whitespace-nowrap ${h.cls} ${h.responsive} ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""} ${h.sticky !== undefined ? "sticky z-20" : ""}`}
-                    style={{ color: isActive ? "#4F46E5" : COLORS.headerText, ...stickyStyle }}
+                    style={{ color: isActive ? "#4F46E5" : COLORS.headerText, ...stickyStyle, ...widthStyle }}
                     onClick={isSortable ? () => handleHeaderClick(h.sortField!) : undefined}
                   >
                     {h.label}
