@@ -223,6 +223,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     duty: job.duty,
     employment_type: job.employment_type,
     work_location: job.work_location,
+    application_start: job.application_start,
     application_end: job.application_end,
     doc_announcement_date: job.doc_announcement_date,
     written_exam_date: job.written_exam_date,
@@ -327,6 +328,13 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         )}
       </td>
 
+      {/* 서류접수 시작일 - 아직 접수 시작 전인지 한눈에 구분하기 위한 컬럼 */}
+      <td className="py-1.5 px-1.5 text-center text-sm whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+        <InlineDateCell value={fields.application_start} onSave={(v) => saveField("application_start", v)}>
+          {fmtDateText(fields.application_start)}
+        </InlineDateCell>
+      </td>
+
       {/* 서류마감 (pill, 클릭해서 날짜 수정) */}
       <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
         <InlineDateCell value={fields.application_end} onSave={(v) => saveField("application_end", v)}>
@@ -372,7 +380,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   );
 }
 
-const COLSPAN = 13;
+const COLSPAN = 14;
 
 function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
   return (
@@ -397,6 +405,7 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type" },
     { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location" },
     { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "" },
+    { label: "서류접수",   cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell", sortField: "application_start" },
     { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end" },
     { label: "서류발표",   cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell", sortField: "doc_announcement_date" },
     { label: "필기",       cls: "px-1.5 text-center",      responsive: "hidden lg:table-cell", sortField: "written_exam_date" },

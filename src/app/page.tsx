@@ -170,7 +170,7 @@ export default function Home() {
   ).length;
 
   return (
-    <main className="max-w-7xl mx-auto px-4 py-6">
+    <main className="max-w-[1800px] mx-auto px-2 py-6">
       {/* 연도 필터 - 기본은 올해만, 작년 이전 건은 해당 연도를 눌러야 보임 */}
       <div className="flex items-center gap-1.5 mb-3">
         <span className="text-xs text-gray-400 mr-1">연도</span>

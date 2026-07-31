@@ -7,6 +7,7 @@ export type SortField =
   | "fit"
   | "employment_type"
   | "work_location"
+  | "application_start"
   | "application_end"
   | "doc_announcement_date"
   | "written_exam_date"
@@ -18,6 +19,7 @@ export type SortField =
 export type SortDir = "asc" | "desc";
 
 const DATE_FIELDS = new Set<SortField>([
+  "application_start",
   "application_end",
   "doc_announcement_date",
   "written_exam_date",
