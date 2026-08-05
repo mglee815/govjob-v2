@@ -14,6 +14,10 @@ const STATUS_COL_WIDTH = 78;
 const DUTY_COL_WIDTH = 190;
 const TYPE_COL_WIDTH = 64;
 const REGION_COL_WIDTH = 140;
+const NEXT_COL_WIDTH = 72;
+const APP_START_COL_WIDTH = 56;
+const DEADLINE_COL_WIDTH = 88;
+const DATE_COL_WIDTH = 52;
 
 const COLORS = {
   star: "#BA7517",
@@ -323,7 +327,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
       </td>
 
       {/* 다음 관문 (날짜는 옆 컬럼에 있으니 라벨만) */}
-      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
+      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg, width: NEXT_COL_WIDTH, minWidth: NEXT_COL_WIDTH, maxWidth: NEXT_COL_WIDTH }}>
         {nextLabel ? (
           <span className="text-sm font-semibold" style={{ color: "#111827" }}>{nextLabel}</span>
         ) : (
@@ -331,50 +335,50 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         )}
       </td>
 
-      {/* 서류접수 시작일 - 아직 접수 시작 전인지 한눈에 구분하기 위한 컬럼 */}
-      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      {/* 서류접수 시작일 - 아직 접수 시작 전인지 한눈에 구분하기 위한 컬럼. td 고정폭으로 행마다 간격 통일 */}
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: APP_START_COL_WIDTH, minWidth: APP_START_COL_WIDTH, maxWidth: APP_START_COL_WIDTH }}>
         <InlineDateCell value={fields.application_start} onSave={(v) => saveField("application_start", v)}>
           {fmtDateText(fields.application_start)}
         </InlineDateCell>
       </td>
 
       {/* 서류마감 (pill, 클릭해서 날짜 수정) */}
-      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
+      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg, width: DEADLINE_COL_WIDTH, minWidth: DEADLINE_COL_WIDTH, maxWidth: DEADLINE_COL_WIDTH }}>
         <InlineDateCell value={fields.application_end} onSave={(v) => saveField("application_end", v)}>
           <DeadlinePill date={fields.application_end} compact />
         </InlineDateCell>
       </td>
 
       {/* 서류발표 */}
-      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.doc_announcement_date} onSave={(v) => saveField("doc_announcement_date", v)}>
           {fmtDateText(fields.doc_announcement_date)}
         </InlineDateCell>
       </td>
 
       {/* 필기 */}
-      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.written_exam_date} onSave={(v) => saveField("written_exam_date", v)}>
           {fmtDateText(fields.written_exam_date)}
         </InlineDateCell>
       </td>
 
       {/* 면접1 */}
-      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.interview_date} onSave={(v) => saveField("interview_date", v)}>
           {fmtDateText(fields.interview_date)}
         </InlineDateCell>
       </td>
 
       {/* 면접2 */}
-      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.interview_date_2} onSave={(v) => saveField("interview_date_2", v)}>
           {fmtDateText(fields.interview_date_2)}
         </InlineDateCell>
       </td>
 
       {/* 최종발표 */}
-      <td className="py-1.5 pl-1 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText }}>
+      <td className="py-1.5 pl-1 pr-2 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.announcement_date} onSave={(v) => saveField("announcement_date", v)}>
           {fmtDateText(fields.announcement_date)}
         </InlineDateCell>
@@ -407,14 +411,14 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", width: DUTY_COL_WIDTH },
     { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type", width: TYPE_COL_WIDTH },
     { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location", width: REGION_COL_WIDTH },
-    { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "" },
-    { label: "서류접수",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "application_start" },
-    { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end" },
-    { label: "서류발표",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "doc_announcement_date" },
-    { label: "필기",       cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "written_exam_date" },
-    { label: "면접1차",    cls: "px-1 text-center",        responsive: "hidden xl:table-cell", sortField: "interview_date" },
-    { label: "면접2차",    cls: "px-1 text-center",        responsive: "hidden xl:table-cell", sortField: "interview_date_2" },
-    { label: "최종발표",   cls: "pl-1 pr-2 text-center",   responsive: "hidden xl:table-cell", sortField: "announcement_date" },
+    { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "", width: NEXT_COL_WIDTH },
+    { label: "서류접수",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "application_start", width: APP_START_COL_WIDTH },
+    { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end", width: DEADLINE_COL_WIDTH },
+    { label: "서류발표",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "doc_announcement_date", width: DATE_COL_WIDTH },
+    { label: "필기",       cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "written_exam_date", width: DATE_COL_WIDTH },
+    { label: "면접1차",    cls: "px-1 text-center",        responsive: "hidden xl:table-cell", sortField: "interview_date", width: DATE_COL_WIDTH },
+    { label: "면접2차",    cls: "px-1 text-center",        responsive: "hidden xl:table-cell", sortField: "interview_date_2", width: DATE_COL_WIDTH },
+    { label: "최종발표",   cls: "pl-1 pr-2 text-center",   responsive: "hidden xl:table-cell", sortField: "announcement_date", width: DATE_COL_WIDTH },
   ];
 
   // 헤더 클릭 한 번으로 오름차순/내림차순 토글 (같은 컬럼 재클릭 시 방향 반전)
