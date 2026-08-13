@@ -10,8 +10,8 @@ import { SortField, SortDir } from "@/lib/sort";
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
 const ORG_COL_WIDTH = 200;
-const STATUS_COL_WIDTH = 108;
-const FIT_COL_WIDTH = 58;
+const STATUS_COL_WIDTH = 94;
+const FIT_COL_WIDTH = 88;
 const DUTY_COL_WIDTH = 260;
 const TYPE_COL_WIDTH = 64;
 const REGION_COL_WIDTH = 140;
