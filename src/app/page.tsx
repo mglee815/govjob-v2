@@ -172,57 +172,61 @@ export default function Home() {
 
   return (
     <main className="max-w-[1800px] mx-auto px-2 py-6">
-      {/* 내 일정 캘린더 - 필터와 무관하게 전체 공고의 서류마감·발표·시험일을 항상 보여줌 */}
-      <ScheduleCalendar jobs={jobs} />
-
-      {/* 연도 필터 - 기본은 올해만, 작년 이전 건은 해당 연도를 눌러야 보임 */}
-      <div className="flex items-center gap-1.5 mb-3">
-        <span className="text-xs text-gray-400 mr-1">연도</span>
-        <button
-          onClick={() => setYearFilter("all")}
-          className={`px-3 py-1 rounded-full text-sm transition-colors ${
-            yearFilter === "all" ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          전체 연도
-        </button>
-        {availableYears.map((y) => (
-          <button
-            key={y}
-            onClick={() => setYearFilter(y)}
-            className={`px-3 py-1 rounded-full text-sm transition-colors ${
-              yearFilter === y ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {y}년
-          </button>
-        ))}
-      </div>
-
-      {/* KPI 카드 - 단계별 누적 건수 (해당 단계 도달 이후 더 진행/탈락했어도 포함) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {KPI_DEFS.map((k) => {
-          const count = yearFilteredJobs.filter((j) => k.statuses.includes(j.status)).length;
-          const failCount = k.failStatuses ? yearFilteredJobs.filter((j) => k.failStatuses!.includes(j.status)).length : 0;
-          const decided = count + failCount;
-          const rate = k.failStatuses && decided > 0 ? Math.round((count / decided) * 100) : null;
-          const isActive = Array.isArray(filter) && filter.length === k.statuses.length && k.statuses.every((s) => filter.includes(s));
-          return (
+      {/* 좌: 연도 필터 + KPI 카드 / 우: 내 일정 캘린더 (필터와 무관하게 전체 공고 일정을 항상 보여줌) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 items-start">
+        <div>
+          {/* 연도 필터 - 기본은 올해만, 작년 이전 건은 해당 연도를 눌러야 보임 */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-xs text-gray-400 mr-1">연도</span>
             <button
-              key={k.key}
-              onClick={() => setFilter(isActive ? "all" : k.statuses)}
-              className={`${k.bg} border-2 rounded-xl p-4 text-center transition-all ${k.border} ${
-                isActive ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
+              onClick={() => setYearFilter("all")}
+              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                yearFilter === "all" ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              <p className={`text-2xl font-bold ${k.num}`}>{count}</p>
-              {rate !== null && (
-                <p className="text-[11px] text-gray-400 mt-0.5">합격률 {rate}% ({count}/{decided})</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">{k.label}</p>
+              전체 연도
             </button>
-          );
-        })}
+            {availableYears.map((y) => (
+              <button
+                key={y}
+                onClick={() => setYearFilter(y)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                  yearFilter === y ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {y}년
+              </button>
+            ))}
+          </div>
+
+          {/* KPI 카드 - 단계별 누적 건수 (해당 단계 도달 이후 더 진행/탈락했어도 포함) */}
+          <div className="grid grid-cols-2 gap-3">
+            {KPI_DEFS.map((k) => {
+              const count = yearFilteredJobs.filter((j) => k.statuses.includes(j.status)).length;
+              const failCount = k.failStatuses ? yearFilteredJobs.filter((j) => k.failStatuses!.includes(j.status)).length : 0;
+              const decided = count + failCount;
+              const rate = k.failStatuses && decided > 0 ? Math.round((count / decided) * 100) : null;
+              const isActive = Array.isArray(filter) && filter.length === k.statuses.length && k.statuses.every((s) => filter.includes(s));
+              return (
+                <button
+                  key={k.key}
+                  onClick={() => setFilter(isActive ? "all" : k.statuses)}
+                  className={`${k.bg} border-2 rounded-xl p-4 text-center transition-all ${k.border} ${
+                    isActive ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
+                  }`}
+                >
+                  <p className={`text-2xl font-bold ${k.num}`}>{count}</p>
+                  {rate !== null && (
+                    <p className="text-[11px] text-gray-400 mt-0.5">합격률 {rate}% ({count}/{decided})</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">{k.label}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <ScheduleCalendar jobs={jobs} />
       </div>
 
       {/* 검색 & 필터 & 정렬 */}

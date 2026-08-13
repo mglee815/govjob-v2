@@ -50,13 +50,56 @@ function ymKey(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// 하루치 일정 전체를 보여주는 팝오버 (더보기 클릭 시)
+function DayDetail({
+  dateKey,
+  events,
+  onClose,
+}: {
+  dateKey: string;
+  events: CalEvent[];
+  onClose: () => void;
+}) {
+  const [, m, d] = dateKey.split("-").map(Number);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[70vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "#E2E8F0" }}>
+          <span className="text-base font-bold text-gray-800">{m}월 {d}일 일정 ({events.length}건)</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="닫기">×</button>
+        </div>
+        <div className="p-3 space-y-1.5">
+          {events.map((ev, i) => (
+            <Link
+              key={i}
+              href={`/jobs/${ev.job.id}`}
+              className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:opacity-80 text-sm"
+              style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
+            >
+              <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">{EVENT_LABELS_FULL[ev.type]}</span>
+              <span className="truncate font-medium">{ev.job.organization ?? "-"}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
   const [collapsed, setCollapsed] = useState(false);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
-  // 모든 공고의 일정을 날짜별로 모아둠 (탈락 건 제외, 필터와 무관하게 항상 전체 기준)
+  // 모든 공고의 일정을 날짜별로 모아둠 (탈락/패스/마감 건 제외, 필터와 무관하게 항상 전체 기준)
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalEvent[]>();
     for (const job of jobs) {
@@ -105,19 +148,19 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
   }, [eventsByDate, year, month]);
 
   return (
-    <div className="rounded-xl bg-white mb-4" style={{ border: "1px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-      <div className="flex items-center justify-between px-3 py-2 border-b flex-wrap gap-1.5" style={{ borderColor: "#E2E8F0" }}>
-        <button onClick={() => setCollapsed((v) => !v)} className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+    <div className="rounded-xl bg-white" style={{ border: "1px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b flex-wrap gap-1.5" style={{ borderColor: "#E2E8F0" }}>
+        <button onClick={() => setCollapsed((v) => !v)} className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
           <span>📅 내 일정</span>
-          <span className="text-[11px] font-normal text-gray-400">{monthEventCount}건</span>
-          <span className="text-[10px] text-gray-400">{collapsed ? "▸" : "▾"}</span>
+          <span className="text-xs font-normal text-gray-400">{monthEventCount}건</span>
+          <span className="text-xs text-gray-400">{collapsed ? "▸" : "▾"}</span>
         </button>
         {!collapsed && (
           <div className="flex items-center gap-1">
-            <button onClick={prevMonth} className="px-1.5 py-0.5 rounded hover:bg-gray-100 text-gray-500 text-xs" aria-label="이전 달">◀</button>
-            <span className="text-xs font-semibold text-gray-700 min-w-[70px] text-center">{year}년 {month + 1}월</span>
-            <button onClick={nextMonth} className="px-1.5 py-0.5 rounded hover:bg-gray-100 text-gray-500 text-xs" aria-label="다음 달">▶</button>
-            <button onClick={goToday} className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600">오늘</button>
+            <button onClick={prevMonth} className="px-1.5 py-0.5 rounded hover:bg-gray-100 text-gray-500 text-sm" aria-label="이전 달">◀</button>
+            <span className="text-sm font-semibold text-gray-700 min-w-[76px] text-center">{year}년 {month + 1}월</span>
+            <button onClick={nextMonth} className="px-1.5 py-0.5 rounded hover:bg-gray-100 text-gray-500 text-sm" aria-label="다음 달">▶</button>
+            <button onClick={goToday} className="ml-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 hover:bg-gray-200 text-gray-600">오늘</button>
           </div>
         )}
       </div>
@@ -125,10 +168,10 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
       {!collapsed && (
         <div className="p-2">
           {/* 범례 */}
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mb-1.5 px-1">
+          <div className="flex flex-wrap gap-x-2.5 gap-y-1 mb-2 px-1">
             {(Object.keys(EVENT_DEFS) as EventType[]).map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 text-[10px]" style={{ color: EVENT_DEFS[t].col }}>
-                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: EVENT_DEFS[t].col }} />
+              <span key={t} className="inline-flex items-center gap-1 text-xs" style={{ color: EVENT_DEFS[t].col }}>
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: EVENT_DEFS[t].col }} />
                 {EVENT_LABELS_FULL[t]}
               </span>
             ))}
@@ -138,24 +181,24 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
             {WEEKDAYS.map((w, i) => (
               <div
                 key={w}
-                className="bg-white text-center text-[10px] font-semibold py-1"
+                className="bg-white text-center text-xs font-semibold py-1.5"
                 style={{ color: i === 0 ? "#A32D2D" : i === 6 ? "#0C447C" : "#718096" }}
               >
                 {w}
               </div>
             ))}
             {cells.map((c) => {
-              if (c.day === null) return <div key={c.key} className="bg-white min-h-[46px]" />;
+              if (c.day === null) return <div key={c.key} className="bg-white min-h-[64px]" />;
               const events = eventsByDate.get(c.key) ?? [];
               const isToday = c.key === todayKey;
               return (
                 <div
                   key={c.key}
-                  className="bg-white min-h-[46px] p-0.5"
+                  className="bg-white min-h-[64px] p-1"
                   style={isToday ? { boxShadow: "inset 0 0 0 2px #4F46E5" } : undefined}
                 >
                   <div
-                    className={`text-[10px] leading-none mb-0.5 ${isToday ? "font-bold" : "text-gray-500"}`}
+                    className={`text-xs leading-none mb-0.5 ${isToday ? "font-bold" : "text-gray-500"}`}
                     style={isToday ? { color: "#4F46E5" } : undefined}
                   >
                     {c.day}
@@ -166,7 +209,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                         key={i}
                         href={`/jobs/${ev.job.id}`}
                         title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}`}
-                        className="flex items-center gap-0.5 truncate text-[9px] px-0.5 rounded leading-[13px]"
+                        className="flex items-center gap-0.5 truncate text-[11px] px-1 rounded leading-[16px]"
                         style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
                       >
                         <span className="font-semibold shrink-0">{EVENT_DEFS[ev.type].label}</span>
@@ -174,7 +217,12 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                       </Link>
                     ))}
                     {events.length > 2 && (
-                      <div className="text-[9px] text-gray-400 px-0.5 leading-none">+{events.length - 2}건</div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedDate(c.key); }}
+                        className="w-full text-left text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline px-1 leading-none font-medium"
+                      >
+                        +{events.length - 2}건 더보기
+                      </button>
                     )}
                   </div>
                 </div>
@@ -182,6 +230,14 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
             })}
           </div>
         </div>
+      )}
+
+      {expandedDate && (
+        <DayDetail
+          dateKey={expandedDate}
+          events={eventsByDate.get(expandedDate) ?? []}
+          onClose={() => setExpandedDate(null)}
+        />
       )}
     </div>
   );
