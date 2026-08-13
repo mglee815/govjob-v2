@@ -7,6 +7,7 @@ import { parseLocalDate, TODAY_MS } from "@/lib/dates";
 import { SortField, SortDir, sortJobs } from "@/lib/sort";
 import JobTable from "@/components/JobTable";
 import Toast from "@/components/Toast";
+import ScheduleCalendar from "@/components/ScheduleCalendar";
 
 // KPI 카드는 "현재 상태"가 아니라 "그 단계까지 도달했던 누적 건수"를 보여준다.
 // 예) 서류합격 이후 필기에서 떨어졌어도(written_fail) 서류는 합격했던 것이므로 "서류합격" 누적 건수에는 포함된다.
@@ -171,6 +172,9 @@ export default function Home() {
 
   return (
     <main className="max-w-[1800px] mx-auto px-2 py-6">
+      {/* 내 일정 캘린더 - 필터와 무관하게 전체 공고의 서류마감·발표·시험일을 항상 보여줌 */}
+      <ScheduleCalendar jobs={jobs} />
+
       {/* 연도 필터 - 기본은 올해만, 작년 이전 건은 해당 연도를 눌러야 보임 */}
       <div className="flex items-center gap-1.5 mb-3">
         <span className="text-xs text-gray-400 mr-1">연도</span>

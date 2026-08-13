@@ -81,6 +81,7 @@ export interface Job {
   announcement_date: string | null;
   notes: string | null;
   status: JobStatus;
+  status_changed_at: string | null;
   created_at: string;
   updated_at: string;
 }

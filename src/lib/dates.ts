@@ -17,3 +17,11 @@ export function daysFromToday(dateStr: string | null | undefined): number | null
   if (t === null) return null;
   return Math.round((t - TODAY_MS) / DAY_MS);
 }
+
+// 오늘 날짜를 로컬 기준 "YYYY-MM-DD"로 반환 (상태 변경 시각 기록용)
+export function todayStr(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}

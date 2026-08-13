@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   interview_date_2 DATE,      -- 면접일 (2차)
   announcement_date DATE,     -- 최종발표일
   notes TEXT,                 -- 내 메모
+  status_changed_at DATE,     -- 상태를 마지막으로 바꾼 날짜 (서류제출/필기응시 등으로 전환한 시점 기록)
   status TEXT DEFAULT 'monitoring' CHECK (
     status IN (
       'monitoring', 'available',
@@ -53,3 +54,6 @@ CREATE TRIGGER jobs_updated_at
 
 -- (선택) Row Level Security - 본인만 접근하도록
 -- ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+
+-- 기존 테이블에 status_changed_at이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
+-- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status_changed_at DATE;

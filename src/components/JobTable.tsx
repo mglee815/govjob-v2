@@ -4,20 +4,20 @@ import { useState, useCallback, useRef, useEffect, Fragment } from "react";
 import Link from "next/link";
 import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
-import { daysFromToday, parseLocalDate } from "@/lib/dates";
+import { daysFromToday, parseLocalDate, todayStr } from "@/lib/dates";
 import { SortField, SortDir } from "@/lib/sort";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
 const ORG_COL_WIDTH = 200;
-const STATUS_COL_WIDTH = 78;
-const DUTY_COL_WIDTH = 190;
+const STATUS_COL_WIDTH = 108;
+const DUTY_COL_WIDTH = 230;
 const TYPE_COL_WIDTH = 64;
 const REGION_COL_WIDTH = 140;
 const NEXT_COL_WIDTH = 72;
-const APP_START_COL_WIDTH = 56;
-const DEADLINE_COL_WIDTH = 88;
-const DATE_COL_WIDTH = 52;
+const APP_START_COL_WIDTH = 64;
+const DEADLINE_COL_WIDTH = 100;
+const DATE_COL_WIDTH = 68;
 
 const COLORS = {
   star: "#BA7517",
@@ -237,6 +237,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     interview_date: job.interview_date,
     interview_date_2: job.interview_date_2,
     announcement_date: job.announcement_date,
+    status_changed_at: job.status_changed_at,
   });
 
   const nextLabel = nextMilestone({ ...job, ...fields, status });
@@ -255,10 +256,12 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
     const nextStatus = e.target.value as JobStatus;
+    const changedAt = todayStr();
     setSaving(true);
-    const { error } = await supabase.from("jobs").update({ status: nextStatus }).eq("id", job.id);
+    const { error } = await supabase.from("jobs").update({ status: nextStatus, status_changed_at: changedAt }).eq("id", job.id);
     if (!error) {
       setStatus(nextStatus);
+      setFields((f) => ({ ...f, status_changed_at: changedAt }));
       onStatusChange?.(job.id, nextStatus);
       onToast?.(`${STATUS_LABELS[nextStatus]}(으)로 변경`, "success");
     } else {
@@ -304,10 +307,17 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
             </option>
           ))}
         </select>
+        {fields.status_changed_at && (
+          <InlineDateCell value={fields.status_changed_at} onSave={(v) => saveField("status_changed_at", v)}>
+            <div className="text-[10px] mt-0.5 text-center cursor-pointer" style={{ color: COLORS.metaText }} title="상태를 이 날짜로 변경함 (클릭해서 수정)">
+              {fmtDateText(fields.status_changed_at)}
+            </div>
+          </InlineDateCell>
+        )}
       </td>
 
       {/* 이 지점부터는 배경이 지브라 패턴 (흰색/연회색). 적합도를 누르면 공고 상세로 이동 */}
-      <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg }}>
+      <td className="py-1.5 px-0.5 text-center whitespace-nowrap" style={{ background: bg }}>
         <FitStars jobId={job.id} fit={job.fit} reason={job.fit_reason} />
       </td>
 
@@ -407,7 +417,7 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
   const headers: { label: string; cls: string; responsive: string; sortField?: SortField; sticky?: number; width?: number }[] = [
     { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization", sticky: 0 },
     { label: "상태",       cls: "px-1 text-left",          responsive: "", sortField: "status", sticky: ORG_COL_WIDTH },
-    { label: "적합도",     cls: "px-1.5 text-center",      responsive: "", sortField: "fit" },
+    { label: "적합도",     cls: "px-0.5 text-center",      responsive: "", sortField: "fit" },
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", width: DUTY_COL_WIDTH },
     { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type", width: TYPE_COL_WIDTH },
     { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location", width: REGION_COL_WIDTH },
