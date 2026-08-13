@@ -36,8 +36,8 @@ const FIELD_MAP: [keyof Job, EventType][] = [
   ["announcement_date", "final"],
 ];
 
-// 떨어진 공고는 더 이상 챙길 일정이 아니므로 캘린더에서 제외
-const EXCLUDED_STATUSES: JobStatus[] = ["doc_fail", "written_fail"];
+// 더 이상 챙길 일정이 아닌 건(불합격·패스·마감 등)은 캘린더에서 제외
+const EXCLUDED_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_fail", "withdrawn", "expired"];
 
 interface CalEvent {
   type: EventType;
