@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   announcement_date DATE,     -- 최종발표일
   notes TEXT,                 -- 내 메모
   status_changed_at DATE,     -- 상태를 마지막으로 바꾼 날짜 (서류제출/필기응시 등으로 전환한 시점 기록)
+  applied_at DATE,            -- 실제로 "서류제출" 상태로 처음 바꾼 날짜 (이후 상태가 바뀌어도 유지됨)
   status TEXT DEFAULT 'monitoring' CHECK (
     status IN (
       'monitoring', 'available',
@@ -57,3 +58,6 @@ CREATE TRIGGER jobs_updated_at
 
 -- 기존 테이블에 status_changed_at이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
 -- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status_changed_at DATE;
+
+-- 기존 테이블에 applied_at이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
+-- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS applied_at DATE;

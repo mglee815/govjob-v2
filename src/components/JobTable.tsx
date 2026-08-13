@@ -11,12 +11,14 @@ const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
 const ORG_COL_WIDTH = 200;
 const STATUS_COL_WIDTH = 108;
-const DUTY_COL_WIDTH = 230;
+const FIT_COL_WIDTH = 58;
+const DUTY_COL_WIDTH = 260;
 const TYPE_COL_WIDTH = 64;
 const REGION_COL_WIDTH = 140;
 const NEXT_COL_WIDTH = 72;
 const APP_START_COL_WIDTH = 64;
 const DEADLINE_COL_WIDTH = 100;
+const APPLIED_COL_WIDTH = 64;
 const DATE_COL_WIDTH = 68;
 
 const COLORS = {
@@ -238,6 +240,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     interview_date_2: job.interview_date_2,
     announcement_date: job.announcement_date,
     status_changed_at: job.status_changed_at,
+    applied_at: job.applied_at,
   });
 
   const nextLabel = nextMilestone({ ...job, ...fields, status });
@@ -257,11 +260,19 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     e.stopPropagation();
     const nextStatus = e.target.value as JobStatus;
     const changedAt = todayStr();
+    // 서류제출로 처음 전환하는 시점의 날짜는 이후 상태가 더 진행되어도 보존 (서류마감 옆 컬럼에 계속 표시하기 위함)
+    const shouldStampApplied = nextStatus === "applied" && !fields.applied_at;
+    const updates: { status: JobStatus; status_changed_at: string; applied_at?: string } = {
+      status: nextStatus,
+      status_changed_at: changedAt,
+    };
+    if (shouldStampApplied) updates.applied_at = changedAt;
+
     setSaving(true);
-    const { error } = await supabase.from("jobs").update({ status: nextStatus, status_changed_at: changedAt }).eq("id", job.id);
+    const { error } = await supabase.from("jobs").update(updates).eq("id", job.id);
     if (!error) {
       setStatus(nextStatus);
-      setFields((f) => ({ ...f, status_changed_at: changedAt }));
+      setFields((f) => ({ ...f, status_changed_at: changedAt, applied_at: shouldStampApplied ? changedAt : f.applied_at }));
       onStatusChange?.(job.id, nextStatus);
       onToast?.(`${STATUS_LABELS[nextStatus]}(으)로 변경`, "success");
     } else {
@@ -317,7 +328,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
       </td>
 
       {/* 이 지점부터는 배경이 지브라 패턴 (흰색/연회색). 적합도를 누르면 공고 상세로 이동 */}
-      <td className="py-1.5 px-0.5 text-center whitespace-nowrap" style={{ background: bg }}>
+      <td className="py-1.5 px-0 text-center whitespace-nowrap" style={{ background: bg, width: FIT_COL_WIDTH, minWidth: FIT_COL_WIDTH, maxWidth: FIT_COL_WIDTH }}>
         <FitStars jobId={job.id} fit={job.fit} reason={job.fit_reason} />
       </td>
 
@@ -359,6 +370,13 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         </InlineDateCell>
       </td>
 
+      {/* 서류제출일 - 실제로 상태를 "서류제출"로 바꾼 날짜 (버튼 누른 시점 자동 기록, 필요시 직접 수정 가능) */}
+      <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: APPLIED_COL_WIDTH, minWidth: APPLIED_COL_WIDTH, maxWidth: APPLIED_COL_WIDTH }}>
+        <InlineDateCell value={fields.applied_at} onSave={(v) => saveField("applied_at", v)}>
+          {fmtDateText(fields.applied_at)}
+        </InlineDateCell>
+      </td>
+
       {/* 서류발표 */}
       <td className="py-1.5 px-1 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.doc_announcement_date} onSave={(v) => saveField("doc_announcement_date", v)}>
@@ -397,7 +415,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   );
 }
 
-const COLSPAN = 14;
+const COLSPAN = 15;
 
 function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
   return (
@@ -417,13 +435,14 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
   const headers: { label: string; cls: string; responsive: string; sortField?: SortField; sticky?: number; width?: number }[] = [
     { label: "기관명",     cls: "pl-2 pr-1.5 text-left",   responsive: "", sortField: "organization", sticky: 0 },
     { label: "상태",       cls: "px-1 text-left",          responsive: "", sortField: "status", sticky: ORG_COL_WIDTH },
-    { label: "적합도",     cls: "px-0.5 text-center",      responsive: "", sortField: "fit" },
+    { label: "적합도",     cls: "px-0 text-center",        responsive: "", sortField: "fit", width: FIT_COL_WIDTH },
     { label: "직무",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", width: DUTY_COL_WIDTH },
     { label: "유형",       cls: "px-1.5 text-left",        responsive: "hidden lg:table-cell", sortField: "employment_type", width: TYPE_COL_WIDTH },
     { label: "지역",       cls: "px-1.5 text-left",        responsive: "hidden md:table-cell", sortField: "work_location", width: REGION_COL_WIDTH },
     { label: "다음 관문",  cls: "px-1.5 text-center",      responsive: "", width: NEXT_COL_WIDTH },
     { label: "서류접수",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "application_start", width: APP_START_COL_WIDTH },
     { label: "서류마감",   cls: "px-1.5 text-center",      responsive: "", sortField: "application_end", width: DEADLINE_COL_WIDTH },
+    { label: "서류제출",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "applied_at", width: APPLIED_COL_WIDTH },
     { label: "서류발표",   cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "doc_announcement_date", width: DATE_COL_WIDTH },
     { label: "필기",       cls: "px-1 text-center",        responsive: "hidden lg:table-cell", sortField: "written_exam_date", width: DATE_COL_WIDTH },
     { label: "면접1차",    cls: "px-1 text-center",        responsive: "hidden xl:table-cell", sortField: "interview_date", width: DATE_COL_WIDTH },

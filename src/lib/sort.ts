@@ -9,6 +9,7 @@ export type SortField =
   | "work_location"
   | "application_start"
   | "application_end"
+  | "applied_at"
   | "doc_announcement_date"
   | "written_exam_date"
   | "interview_date"
@@ -21,6 +22,7 @@ export type SortDir = "asc" | "desc";
 const DATE_FIELDS = new Set<SortField>([
   "application_start",
   "application_end",
+  "applied_at",
   "doc_announcement_date",
   "written_exam_date",
   "interview_date",
