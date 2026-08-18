@@ -9,6 +9,14 @@ import { SortField, SortDir } from "@/lib/sort";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
+// status_changed_at / applied_at 같은 확장 컬럼이 DB 마이그레이션 전이라 아직 없을 때 발생하는 에러
+// (PGRST204: PostgREST 스키마 캐시에 없음, 42703: Postgres에 컬럼 자체가 없음)
+function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST204" || error.code === "42703") return true;
+  return /column .* (does not exist|in the schema cache)/i.test(error.message ?? "");
+}
+
 const ORG_COL_WIDTH = 200;
 const STATUS_COL_WIDTH = 94;
 const FIT_COL_WIDTH = 88;
@@ -251,6 +259,8 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     if (!error) {
       setFields((f) => ({ ...f, [field]: value }));
       onToast?.("저장되었습니다", "success");
+    } else if (isMissingColumnError(error)) {
+      onToast?.("이 항목은 아직 DB에 컬럼이 없어 저장할 수 없습니다 (관리자에게 DB 업데이트 요청 필요)", "error");
     } else {
       onToast?.("저장 실패: " + error.message, "error");
     }
@@ -269,12 +279,28 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     if (shouldStampApplied) updates.applied_at = changedAt;
 
     setSaving(true);
-    const { error } = await supabase.from("jobs").update(updates).eq("id", job.id);
+    let { error } = await supabase.from("jobs").update(updates).eq("id", job.id);
+
+    // status_changed_at/applied_at 컬럼이 DB에 아직 없어도 상태 변경 자체(핵심 기능)는 항상 되게끔
+    // 확장 컬럼 없이 status만 다시 시도
+    let fellBack = false;
+    if (error && isMissingColumnError(error)) {
+      fellBack = true;
+      ({ error } = await supabase.from("jobs").update({ status: nextStatus }).eq("id", job.id));
+    }
+
     if (!error) {
       setStatus(nextStatus);
-      setFields((f) => ({ ...f, status_changed_at: changedAt, applied_at: shouldStampApplied ? changedAt : f.applied_at }));
+      if (!fellBack) {
+        setFields((f) => ({ ...f, status_changed_at: changedAt, applied_at: shouldStampApplied ? changedAt : f.applied_at }));
+      }
       onStatusChange?.(job.id, nextStatus);
-      onToast?.(`${STATUS_LABELS[nextStatus]}(으)로 변경`, "success");
+      onToast?.(
+        fellBack
+          ? `${STATUS_LABELS[nextStatus]}(으)로 변경 (날짜 기록은 DB 업데이트 후 가능)`
+          : `${STATUS_LABELS[nextStatus]}(으)로 변경`,
+        "success"
+      );
     } else {
       onToast?.("상태 변경 실패: " + error.message, "error");
     }
