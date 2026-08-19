@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Job, JobStatus } from "@/lib/types";
 
@@ -93,7 +93,13 @@ function DayDetail({
 }
 
 export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
-  const now = new Date();
+  // 서버가 정적으로 캐싱한 HTML에는 캐시 생성 시점(UTC)의 "오늘"이 굳어서 박혀있을 수 있으므로,
+  // 마운트 직후 브라우저의 실제 로컬 시각으로 한 번 더 갱신해 오늘 표시가 항상 정확하게 함
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    setNow(new Date());
+  }, []);
+
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
   const [collapsed, setCollapsed] = useState(false);
