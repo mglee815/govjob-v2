@@ -114,6 +114,7 @@ read_page/get_page_text로도 정보가 부족하면 (이미지 기반 공고, P
 - `salary`: 급여/보수 정보
 - `application_start`: 접수 시작일 (YYYY-MM-DD, 없으면 null)
 - `application_end`: 접수 마감일 (YYYY-MM-DD, 없으면 null)
+- `application_end_time`: **접수 마감 시각 (24시간제 "HH:MM", 반드시 확인)** — 날짜만 믿고 있다가 실제 마감 시각을 몰라서 제출을 놓친 사고가 반복된 적 있음. 원문에 "18:00까지", "오후 6시", "24:00", "자정" 등으로 명시되어 있으면 반드시 추출해서 저장. **원문에 시각이 전혀 없으면 임의로 추정(예: 18:00으로 가정)하지 말고 null로 두되, Step 5 확인 단계에서 사용자에게 "마감 시각이 명시되지 않았으니 원 공고 링크에서 직접 확인하세요"라고 반드시 안내**
 - `doc_announcement_date`: 서류합격 발표일 (YYYY-MM-DD, 없으면 null)
 - `written_exam_date`: 필기시험일 (YYYY-MM-DD, 없으면 null)
 - `interview_date`: 면접일 1차 (YYYY-MM-DD, 없으면 null)
@@ -172,6 +173,12 @@ read_page/get_page_text로도 정보가 부족하면 (이미지 기반 공고, P
 추출한 정보 + 적합도 평가를 사용자에게 표로 보여주고 수정이 필요하면 반영합니다.
 또한 정보 추출에 사용한 방법(WebFetch / Chrome 읽기 / 스크린샷 / 사용자 입력)을 간략히 표시합니다.
 
+**마감 시각을 원문에서 못 찾았다면 반드시 다음처럼 눈에 띄게 경고**:
+```
+⚠️ 마감 시각이 공고에 명시되어 있지 않습니다. application_end_time을 null로 저장하니,
+지원 전 반드시 원 공고(URL)에서 정확한 마감 시각을 직접 확인해주세요.
+```
+
 ### 6. Supabase 저장
 아래 형식으로 Supabase REST API에 POST 요청을 보냅니다.
 
@@ -184,10 +191,10 @@ curl -s -X POST "https://yjxjwnqirtihqnfhrprj.supabase.co/rest/v1/jobs" \
   -d '<JSON 데이터>'
 ```
 
-JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다. 서류/필기 배수 정보가 공고에 있으면 `doc_screening_ratio`, `written_exam_ratio`도 함께 포함합니다.
+JSON 데이터에는 반드시 `fit`, `fit_reason`, `url`도 포함합니다. 서류/필기 배수 정보가 공고에 있으면 `doc_screening_ratio`, `written_exam_ratio`도 함께 포함합니다. `application_end_time`도 원문에서 확인됐으면 반드시 포함합니다.
 
 ### 7. 완료 보고
-저장된 공고의 제목, 기관명, 마감일, 적합도(★★★★☆ 4점), fit_reason을 알려줍니다. 대시보드 URL: https://govjob-v2.vercel.app
+저장된 공고의 제목, 기관명, **마감일시(예: 8/24 18:00 — 시각 없으면 "8/24 (시각 미확인, 원문 확인 필요)"로 명시)**, 적합도(★★★★☆ 4점), fit_reason을 알려줍니다. 대시보드 URL: https://govjob-v2.vercel.app
 
 ## 상태값 기준
 - 기본값: `monitoring` (모니터링)

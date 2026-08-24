@@ -74,6 +74,7 @@ export interface Job {
   salary: string | null;
   application_start: string | null;
   application_end: string | null;
+  application_end_time: string | null;
   doc_announcement_date: string | null;
   written_exam_date: string | null;
   interview_date: string | null;

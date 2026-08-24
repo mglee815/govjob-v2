@@ -42,6 +42,7 @@ const EXCLUDED_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_f
 interface CalEvent {
   type: EventType;
   job: Job;
+  time?: string | null;
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -82,7 +83,9 @@ function DayDetail({
               className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:opacity-80 text-sm"
               style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
             >
-              <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">{EVENT_LABELS_FULL[ev.type]}</span>
+              <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">
+                {EVENT_LABELS_FULL[ev.type]}{ev.time ? ` ${ev.time}` : ""}
+              </span>
               <span className="truncate font-medium">{ev.job.organization ?? "-"}</span>
             </Link>
           ))}
@@ -115,7 +118,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
         if (!v) continue;
         const key = v.slice(0, 10);
         const arr = map.get(key) ?? [];
-        arr.push({ type, job });
+        arr.push({ type, job, time: type === "app_end" ? job.application_end_time : null });
         map.set(key, arr);
       }
     }
@@ -214,11 +217,11 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                       <Link
                         key={i}
                         href={`/jobs/${ev.job.id}`}
-                        title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}`}
+                        title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}${ev.time ? ` ${ev.time}` : ""}`}
                         className="flex items-center gap-0.5 truncate text-[11px] px-1 rounded leading-[16px]"
                         style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
                       >
-                        <span className="font-semibold shrink-0">{EVENT_DEFS[ev.type].label}</span>
+                        <span className="font-semibold shrink-0">{EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}</span>
                         <span className="truncate">{ev.job.organization ?? "-"}</span>
                       </Link>
                     ))}

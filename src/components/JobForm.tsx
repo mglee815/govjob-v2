@@ -37,6 +37,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     salary: initialData.salary ?? "",
     application_start: initialData.application_start ?? "",
     application_end: initialData.application_end ?? "",
+    application_end_time: initialData.application_end_time ?? "",
     doc_announcement_date: initialData.doc_announcement_date ?? "",
     written_exam_date: initialData.written_exam_date ?? "",
     interview_date: initialData.interview_date ?? "",
@@ -86,6 +87,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       headcount: form.headcount ? Number(form.headcount) : null,
       application_start: form.application_start || null,
       application_end: form.application_end || null,
+      application_end_time: form.application_end_time || null,
       doc_announcement_date: form.doc_announcement_date || null,
       written_exam_date: form.written_exam_date || null,
       interview_date: form.interview_date || null,
@@ -333,6 +335,15 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
               />
             </div>
           ))}
+          <div>
+            <label className="label">서류 마감 시각 (몇 시까지인지 - 놓치기 쉬우니 꼭 확인)</label>
+            <input
+              type="time"
+              value={form.application_end_time ?? ""}
+              onChange={(e) => set("application_end_time", e.target.value || null)}
+              className="input"
+            />
+          </div>
         </div>
       </section>
 

@@ -86,12 +86,15 @@ function FitStars({ jobId, fit, reason }: { jobId: string; fit: number | null; r
   );
 }
 
-// v1 style pill: 서류마감 등에 사용
+// v1 style pill: 서류마감 등에 사용. 시간을 모르는 채로 날짜만 믿다가 마감을 놓친 사고가 있었어서,
+// 시간이 있으면 반드시 함께 표시해 "몇 시까지"인지 한눈에 보이게 함
 function DeadlinePill({
   date,
+  time,
   compact,
 }: {
   date: string | null;
+  time?: string | null;
   compact?: boolean;
 }) {
   const pad = compact ? "px-1.5 py-[1px]" : "px-2 py-0.5";
@@ -106,7 +109,7 @@ function DeadlinePill({
   const diff = daysFromToday(date)!;
   const mm = dt.getMonth() + 1;
   const dd = dt.getDate();
-  const mmdd = `${mm}/${dd}`;
+  const mmdd = time ? `${mm}/${dd} ${time}` : `${mm}/${dd}`;
 
   if (diff < 0)  return <span className={cls} style={{ background: COLORS.closed.bg, color: COLORS.closed.col }}>마감 ({mmdd})</span>;
   if (diff === 0) return <span className={cls} style={{ background: COLORS.urgent.bg, color: COLORS.urgent.col, fontWeight: 700 }}>오늘 ({mmdd})</span>;
@@ -232,6 +235,35 @@ function InlineDateCell({ value, onSave, children }: { value: string | null; onS
   );
 }
 
+// 클릭하면 시각(HH:MM) 입력창으로 바뀌는 셀 - 마감시간처럼 "몇 시까지"가 중요한 값을 위한 것
+function InlineTimeCell({ value, onSave, children }: { value: string | null; onSave: (v: string | null) => void; children: React.ReactNode }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="time"
+        autoFocus
+        defaultValue={value ?? ""}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={(e) => {
+          setEditing(false);
+          const v = e.target.value || null;
+          if (v !== value) onSave(v);
+        }}
+        className="text-[10px] border rounded px-1 py-0.5 w-full"
+        style={{ borderColor: "#A5B4FC" }}
+      />
+    );
+  }
+
+  return (
+    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditing(true); }}>
+      {children}
+    </div>
+  );
+}
+
 function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
@@ -242,6 +274,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     work_location: job.work_location,
     application_start: job.application_start,
     application_end: job.application_end,
+    application_end_time: job.application_end_time,
     doc_announcement_date: job.doc_announcement_date,
     written_exam_date: job.written_exam_date,
     interview_date: job.interview_date,
@@ -389,11 +422,20 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         </InlineDateCell>
       </td>
 
-      {/* 서류마감 (pill, 클릭해서 날짜 수정) */}
+      {/* 서류마감 (pill, 클릭해서 날짜 수정) + 마감시간 (날짜만 믿고 있다가 마감을 놓친 사고가 있어서 반드시 같이 보이게 함) */}
       <td className="py-1.5 px-1.5 text-center whitespace-nowrap" style={{ background: bg, width: DEADLINE_COL_WIDTH, minWidth: DEADLINE_COL_WIDTH, maxWidth: DEADLINE_COL_WIDTH }}>
         <InlineDateCell value={fields.application_end} onSave={(v) => saveField("application_end", v)}>
-          <DeadlinePill date={fields.application_end} compact />
+          <DeadlinePill date={fields.application_end} time={fields.application_end_time} compact />
         </InlineDateCell>
+        <InlineTimeCell value={fields.application_end_time} onSave={(v) => saveField("application_end_time", v)}>
+          <div
+            className="text-[9px] mt-0.5 text-center"
+            style={{ color: fields.application_end_time ? COLORS.metaText : "#CBD5E0" }}
+            title="마감 시각 (클릭해서 입력/수정)"
+          >
+            {fields.application_end_time ? `⏰ ${fields.application_end_time}` : "시간 입력"}
+          </div>
+        </InlineTimeCell>
       </td>
 
       {/* 서류제출일 - 실제로 상태를 "서류제출"로 바꾼 날짜 (버튼 누른 시점 자동 기록, 필요시 직접 수정 가능) */}

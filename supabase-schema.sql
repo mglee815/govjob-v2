@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   salary TEXT,                -- 급여/보수
   application_start DATE,     -- 접수시작일
   application_end DATE,       -- 접수마감일
+  application_end_time TEXT,  -- 접수마감 시각 (예: "18:00") - 날짜만으론 몇 시까지인지 몰라 마감을 놓치는 사고를 막기 위함
   doc_announcement_date DATE, -- 서류발표일
   written_exam_date DATE,     -- 필기시험일
   interview_date DATE,        -- 면접일 (1차)
@@ -61,3 +62,6 @@ CREATE TRIGGER jobs_updated_at
 
 -- 기존 테이블에 applied_at이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
 -- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS applied_at DATE;
+
+-- 기존 테이블에 application_end_time이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
+-- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_end_time TEXT;

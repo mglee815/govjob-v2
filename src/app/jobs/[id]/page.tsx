@@ -165,7 +165,7 @@ export default function JobDetailPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">일정</h2>
         <Row label="접수 시작" value={job.application_start ? new Date(job.application_start).toLocaleDateString("ko-KR") : null} />
-        <Row label="접수 마감" value={job.application_end ? new Date(job.application_end).toLocaleDateString("ko-KR") : null} />
+        <Row label="접수 마감" value={job.application_end ? `${new Date(job.application_end).toLocaleDateString("ko-KR")}${job.application_end_time ? ` ${job.application_end_time}` : ""}` : null} />
         <Row label="서류 발표" value={job.doc_announcement_date ? new Date(job.doc_announcement_date).toLocaleDateString("ko-KR") : null} />
         <Row label="필기시험" value={job.written_exam_date ? new Date(job.written_exam_date).toLocaleDateString("ko-KR") : null} />
         <Row label="면접 1차" value={job.interview_date ? new Date(job.interview_date).toLocaleDateString("ko-KR") : null} />
