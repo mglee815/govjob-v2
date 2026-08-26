@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   headcount INTEGER,          -- 선발인원
   doc_screening_ratio TEXT,   -- 서류전형 배수 (예: "3배수", "5배수 내외")
   written_exam_ratio TEXT,    -- 필기시험 배수 (예: "2배수")
+  written_exam_subjects TEXT, -- 필기시험 과목/영역 (예: "NCS 직업기초능력 + 직무수행능력(행정학·경영학)")
   salary TEXT,                -- 급여/보수
   application_start DATE,     -- 접수시작일
   application_end DATE,       -- 접수마감일
@@ -65,3 +66,6 @@ CREATE TRIGGER jobs_updated_at
 
 -- 기존 테이블에 application_end_time이 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
 -- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_end_time TEXT;
+
+-- 기존 테이블에 written_exam_subjects가 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
+-- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS written_exam_subjects TEXT;

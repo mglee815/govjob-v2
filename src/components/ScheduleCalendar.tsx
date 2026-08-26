@@ -131,10 +131,21 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
   const startWeekday = firstDay.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const cells: { key: string; day: number | null }[] = [];
-  for (let i = 0; i < startWeekday; i++) cells.push({ key: `pad-start-${i}`, day: null });
-  for (let d = 1; d <= daysInMonth; d++) cells.push({ key: ymKey(year, month, d), day: d });
-  while (cells.length % 7 !== 0) cells.push({ key: `pad-end-${cells.length}`, day: null });
+  // 이전/다음 달의 날짜도 옅은 회색으로 채워서, 이번 달에 안 잡혀서 못 보고 지나치는 마감이 없게 함
+  const cells: { key: string; day: number; inMonth: boolean }[] = [];
+  const prevMonthLastDay = new Date(year, month, 0);
+  const prevMonthDays = prevMonthLastDay.getDate();
+  for (let i = startWeekday - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    cells.push({ key: ymKey(prevMonthLastDay.getFullYear(), prevMonthLastDay.getMonth(), d), day: d, inMonth: false });
+  }
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ key: ymKey(year, month, d), day: d, inMonth: true });
+  const nextMonthFirstDay = new Date(year, month + 1, 1);
+  let nextDay = 1;
+  while (cells.length % 7 !== 0) {
+    cells.push({ key: ymKey(nextMonthFirstDay.getFullYear(), nextMonthFirstDay.getMonth(), nextDay), day: nextDay, inMonth: false });
+    nextDay++;
+  }
 
   function prevMonth() {
     if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1);
@@ -197,7 +208,6 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
               </div>
             ))}
             {cells.map((c) => {
-              if (c.day === null) return <div key={c.key} className="bg-white min-h-[64px]" />;
               const events = eventsByDate.get(c.key) ?? [];
               const isToday = c.key === todayKey;
               return (
@@ -207,7 +217,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                   style={isToday ? { boxShadow: "inset 0 0 0 2px #4F46E5" } : undefined}
                 >
                   <div
-                    className={`text-xs leading-none mb-0.5 ${isToday ? "font-bold" : "text-gray-500"}`}
+                    className={`text-xs leading-none mb-0.5 ${isToday ? "font-bold" : c.inMonth ? "text-gray-500" : "text-gray-300"}`}
                     style={isToday ? { color: "#4F46E5" } : undefined}
                   >
                     {c.day}

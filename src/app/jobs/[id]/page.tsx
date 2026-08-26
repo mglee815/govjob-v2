@@ -158,6 +158,7 @@ export default function JobDetailPage() {
           <Row label="선발방식" value={job.selection_method} />
         <Row label="서류배수" value={job.doc_screening_ratio} />
         <Row label="필기배수" value={job.written_exam_ratio} />
+        <Row label="필기과목" value={job.written_exam_subjects} />
         </div>
       )}
 

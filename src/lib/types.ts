@@ -71,6 +71,7 @@ export interface Job {
   headcount: number | null;
   doc_screening_ratio: string | null;
   written_exam_ratio: string | null;
+  written_exam_subjects: string | null;
   salary: string | null;
   application_start: string | null;
   application_end: string | null;

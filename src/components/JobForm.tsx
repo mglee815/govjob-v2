@@ -34,6 +34,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     headcount: initialData.headcount ?? null,
     doc_screening_ratio: initialData.doc_screening_ratio ?? "",
     written_exam_ratio: initialData.written_exam_ratio ?? "",
+    written_exam_subjects: initialData.written_exam_subjects ?? "",
     salary: initialData.salary ?? "",
     application_start: initialData.application_start ?? "",
     application_end: initialData.application_end ?? "",
@@ -103,6 +104,7 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       selection_method: form.selection_method || null,
       doc_screening_ratio: form.doc_screening_ratio || null,
       written_exam_ratio: form.written_exam_ratio || null,
+      written_exam_subjects: form.written_exam_subjects || null,
       salary: form.salary || null,
       notes: form.notes || null,
     };
@@ -306,6 +308,15 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
                 onChange={(e) => set("written_exam_ratio", e.target.value)}
                 className="input"
                 placeholder="예) 2배수"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">필기시험 과목</label>
+              <input
+                value={form.written_exam_subjects ?? ""}
+                onChange={(e) => set("written_exam_subjects", e.target.value)}
+                className="input"
+                placeholder="예) NCS 직업기초능력 + 직무수행능력(행정학·경영학)"
               />
             </div>
           </div>
