@@ -167,8 +167,21 @@ NEXT_PUBLIC_SUPABASE_URL=https://yjxjwnqirtihqnfhrprj.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 ```
 
+### DB 직접 연결 (`SUPABASE_DB_URL`, 스키마 마이그레이션 자동화용)
+`.env.local`에 `SUPABASE_DB_URL`이 있으면 (Transaction pooler 연결 문자열, DB 비밀번호 포함) `scripts/run-sql.mjs`로 SQL Editor를 거치지 않고 직접 스키마 변경(ALTER TABLE 등)을 실행할 수 있습니다.
+
+```bash
+node scripts/run-sql.mjs "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS 컬럼명 TEXT;"
+```
+
+- **이 값은 절대 git에 커밋하거나 Vercel에 등록하지 말 것** (anon key와 달리 DB 전체 읽기/쓰기/구조변경 권한을 가진 강력한 자격증명)
+- `.env.local`은 이미 `.gitignore`에 포함되어 있어 안전함
+- Claude가 새 컬럼이 필요한 기능을 추가할 때, 이 값이 있으면 사용자에게 SQL을 대신 실행해달라고 요청하지 말고 **직접 `run-sql.mjs`로 마이그레이션까지 끝낼 것**
+- 값이 없거나 연결 실패 시에만 기존 방식(사용자에게 SQL Editor에서 실행 요청)으로 폴백
+- Direct connection(`db.<ref>.supabase.co`) 호스트는 IPv6 전용이라 이 환경에서 연결 안 될 수 있음 → 반드시 **Transaction/Session pooler** 연결 문자열(`aws-*.pooler.supabase.com`) 사용
+
 ### Vercel (배포 환경)
-Vercel 대시보드 → Settings → Environment Variables에 위 두 값 등록. 변경 후 반드시 **Redeploy**.
+Vercel 대시보드 → Settings → Environment Variables에 위 두 값(`NEXT_PUBLIC_*`) 등록. 변경 후 반드시 **Redeploy**. `SUPABASE_DB_URL`은 절대 등록하지 않음.
 
 ### Python 에이전트 (`agents/.env`, 선택)
 ```
@@ -227,7 +240,7 @@ withdrawn       패스(미지원)
 expired         마감(미지원)
 ```
 
-DB 초기화가 필요하면 `supabase-schema.sql`을 Supabase SQL Editor에서 실행.
+DB 초기화가 필요하면 `supabase-schema.sql`을 Supabase SQL Editor에서 실행. 컬럼 추가 등 작은 마이그레이션은 `SUPABASE_DB_URL`이 설정되어 있으면 `scripts/run-sql.mjs`로 직접 실행 (위 "환경변수" 섹션 참고).
 
 ---
 
