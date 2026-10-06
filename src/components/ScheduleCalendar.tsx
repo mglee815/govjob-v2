@@ -165,7 +165,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
 
   const todayKey = useMemo(() => ymKey(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
 
-  // 모바일용 "다가오는 일정" 목록 (오늘부터 앞으로 8건)
+  // "다가오는 일정" 목록 (오늘부터 앞으로 10건)
   const upcoming = useMemo(() => {
     const out: { key: string; ev: CalEvent }[] = [];
     const keys = Array.from(eventsByDate.keys()).filter((k) => k >= todayKey).sort();
@@ -173,7 +173,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
       for (const ev of eventsByDate.get(key)!) {
         if (ev.type === "app_start") continue;
         out.push({ key, ev });
-        if (out.length >= 8) return out;
+        if (out.length >= 10) return out;
       }
     }
     return out;
@@ -320,9 +320,9 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
             })}
           </div>
 
-          {/* 모바일 전용: 다가오는 일정 목록 (정렬·캘린더를 안 눌러도 가까운 시험·마감을 바로 확인) */}
+          {/* 다가오는 일정 목록 (캘린더를 안 눌러도 가까운 시험·마감과 시험과목을 바로 확인) */}
           {upcoming.length > 0 && (
-            <div className="md:hidden mt-3 pt-2 border-t" style={{ borderColor: "#EDF2F7" }}>
+            <div className="mt-3 pt-2 border-t" style={{ borderColor: "#EDF2F7" }}>
               <p className="text-xs font-semibold px-1 mb-1" style={{ color: "#718096" }}>다가오는 일정</p>
               <ul>
                 {upcoming.map(({ key, ev }, i) => {
@@ -331,17 +331,24 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                     <li key={i}>
                       <button
                         onClick={() => setExpandedDate(key)}
-                        className="w-full flex items-center gap-2 py-2 px-1 text-left active:bg-gray-50"
+                        className="w-full py-2 px-1 text-left hover:bg-gray-50 active:bg-gray-50"
                       >
-                        <span className="w-[62px] shrink-0 text-xs text-gray-500">{m}/{d}({weekdayOf(key)})</span>
-                        <span
-                          className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded"
-                          style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
-                        >
-                          {EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}
-                        </span>
-                        <span className="truncate text-sm text-gray-800 min-w-0">{ev.job.organization ?? "-"}</span>
-                        <span className="ml-auto shrink-0 text-[11px] text-gray-400">{ddayLabel(key)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="w-[62px] shrink-0 text-xs text-gray-500">{m}/{d}({weekdayOf(key)})</span>
+                          <span
+                            className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded"
+                            style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
+                          >
+                            {EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}
+                          </span>
+                          <span className="truncate text-sm text-gray-800 min-w-0">{ev.job.organization ?? "-"}</span>
+                          <span className="ml-auto shrink-0 text-[11px] text-gray-400">{ddayLabel(key)}</span>
+                        </div>
+                        {ev.type === "written" && ev.job.written_exam_subjects && (
+                          <p className="text-[11px] leading-snug mt-1 pl-[70px]" style={{ color: "#633806" }}>
+                            📝 {ev.job.written_exam_subjects}
+                          </p>
+                        )}
                       </button>
                     </li>
                   );
