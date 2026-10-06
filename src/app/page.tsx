@@ -94,6 +94,7 @@ function jobYear(job: Job): string | null {
 const QUICK_SORT_OPTIONS: { label: string; field: SortField; dir: SortDir }[] = [
   { label: "마감임박순", field: "application_end", dir: "asc" },
   { label: "필기임박순", field: "written_exam_date", dir: "asc" },
+  { label: "면접임박순", field: "interview_date", dir: "asc" },
   { label: "등록일순",   field: "created_at", dir: "desc" },
 ];
 
@@ -211,11 +212,11 @@ export default function Home() {
                 <button
                   key={k.key}
                   onClick={() => setFilter(isActive ? "all" : k.statuses)}
-                  className={`${k.bg} border-2 rounded-xl p-4 text-center transition-all ${k.border} ${
+                  className={`${k.bg} border-2 rounded-xl p-3 sm:p-4 text-center transition-all ${k.border} ${
                     isActive ? "ring-2 ring-offset-1 ring-indigo-400 shadow-md" : ""
                   }`}
                 >
-                  <p className={`text-2xl font-bold ${k.num}`}>{count}</p>
+                  <p className={`text-xl sm:text-2xl font-bold ${k.num}`}>{count}</p>
                   {rate !== null && (
                     <p className="text-[11px] text-gray-400 mt-0.5">합격률 {rate}% ({count}/{decided})</p>
                   )}
@@ -243,7 +244,7 @@ export default function Home() {
 
         {/* 상태 필터 - 한 줄로 이어지며 가로 스크롤 (스크롤바는 숨겨서 다른 컨트롤과 높이를 맞춤) */}
         <div
-          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto flex-1 min-w-0 h-8 [&::-webkit-scrollbar]:hidden"
+          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto w-full sm:w-auto sm:flex-1 min-w-0 h-8 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none" }}
         >
           {FILTER_OPTIONS.map((opt) => {
@@ -289,6 +290,8 @@ export default function Home() {
           aria-label="정렬 기준"
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
+          {/* 표 헤더를 눌러 빠른 정렬 목록에 없는 기준으로 정렬한 경우에도 선택칸이 비지 않게 함 */}
+          <option value={-1} hidden>컬럼 기준 정렬</option>
           {QUICK_SORT_OPTIONS.map((o, i) => (
             <option key={o.label} value={i}>{o.label}</option>
           ))}

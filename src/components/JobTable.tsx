@@ -265,10 +265,10 @@ function InlineTimeCell({ value, onSave, children }: { value: string | null; onS
   );
 }
 
-function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
+// 데스크톱 표(Row)와 모바일 카드(MobileJobCard)가 같은 저장·상태변경 로직을 쓰도록 분리
+function useJobState(job: Job, onStatusChange?: Props["onStatusChange"], onToast?: Props["onToast"]) {
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [saving, setSaving] = useState(false);
-  const [orgExpanded, setOrgExpanded] = useState(false);
   const [fields, setFields] = useState({
     duty: job.duty,
     employment_type: job.employment_type,
@@ -286,8 +286,12 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     written_exam_subjects: job.written_exam_subjects,
   });
 
+  // 다른 쪽 뷰(표/카드)에서 상태를 바꾸면 부모의 jobs가 갱신되므로 여기도 따라가게 함
+  useEffect(() => {
+    setStatus(job.status);
+  }, [job.status]);
+
   const nextLabel = nextMilestone({ ...job, ...fields, status });
-  const bg = zebra ? COLORS.rowOdd : COLORS.rowEven;
 
   async function saveField(field: keyof typeof fields, value: string | null) {
     const { error } = await supabase.from("jobs").update({ [field]: value }).eq("id", job.id);
@@ -301,9 +305,7 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
     }
   }
 
-  async function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
-    e.stopPropagation();
-    const nextStatus = e.target.value as JobStatus;
+  async function changeStatus(nextStatus: JobStatus) {
     const changedAt = todayStr();
     // 서류제출로 처음 전환하는 시점의 날짜는 이후 상태가 더 진행되어도 보존 (서류마감 옆 컬럼에 계속 표시하기 위함)
     const shouldStampApplied = nextStatus === "applied" && !fields.applied_at;
@@ -340,6 +342,19 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
       onToast?.("상태 변경 실패: " + error.message, "error");
     }
     setSaving(false);
+  }
+
+  return { status, saving, fields, nextLabel, saveField, changeStatus };
+}
+
+function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
+  const { status, saving, fields, nextLabel, saveField, changeStatus } = useJobState(job, onStatusChange, onToast);
+  const [orgExpanded, setOrgExpanded] = useState(false);
+  const bg = zebra ? COLORS.rowOdd : COLORS.rowEven;
+
+  function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
+    e.stopPropagation();
+    changeStatus(e.target.value as JobStatus);
   }
 
   return (
@@ -459,8 +474,8 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
         )}
       </td>
 
-      {/* 필기 */}
-      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
+      {/* 필기 - 태블릿(md)부터 보이게 함 (시험 날짜는 가장 자주 확인하는 값) */}
+      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden md:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
         <InlineDateCell value={fields.written_exam_date} onSave={(v) => saveField("written_exam_date", v)}>
           {fmtDateText(fields.written_exam_date)}
         </InlineDateCell>
@@ -495,6 +510,113 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
   );
 }
 
+type ChipKind = "past" | "today" | "next" | "future";
+
+const CHIP_STYLES: Record<ChipKind, { bg: string; col: string; border: string; weight: number }> = {
+  past:   { bg: "#F1F5F9", col: "#94A3B8", border: "#F1F5F9", weight: 400 },
+  today:  { bg: "#FCEBEB", col: "#A32D2D", border: "#F5B5B5", weight: 700 },
+  next:   { bg: "#E0E7FF", col: "#3730A3", border: "#A5B4FC", weight: 700 },
+  future: { bg: "#F8FAFC", col: "#475569", border: "#E2E8F0", weight: 500 },
+};
+
+const MOBILE_MILESTONES: { field: "doc_announcement_date" | "written_exam_date" | "interview_date" | "interview_date_2" | "announcement_date"; label: string }[] = [
+  { field: "doc_announcement_date", label: "서류발표" },
+  { field: "written_exam_date",     label: "필기" },
+  { field: "interview_date",        label: "면접1" },
+  { field: "interview_date_2",      label: "면접2" },
+  { field: "announcement_date",     label: "최종발표" },
+];
+
+const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_fail", "withdrawn", "expired"];
+
+// 모바일 전용 카드: 고정 열 없이 한 공고의 핵심(마감·필기·면접·발표 일정)을 한 화면에 보여줌
+function MobileJobCard({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
+  const { status, saving, fields, changeStatus } = useJobState(job, onStatusChange, onToast);
+  const inactive = INACTIVE_STATUSES.includes(status);
+
+  const dated = MOBILE_MILESTONES
+    .map((m) => ({ ...m, date: fields[m.field], diff: daysFromToday(fields[m.field]) }))
+    .filter((m): m is typeof m & { date: string; diff: number } => m.diff !== null);
+  // 아직 안 지난 일정 중 가장 가까운 것을 강조 (탈락·패스 건은 강조 없이 흐리게)
+  const nextField = inactive ? null : dated.find((m) => m.diff >= 0)?.field ?? null;
+
+  const startDiff = daysFromToday(fields.application_start);
+  const showStart = startDiff !== null && startDiff > 0 && !inactive;
+
+  return (
+    <div className="px-3 py-3 border-b" style={{ borderColor: "#EDF2F7", opacity: inactive ? 0.7 : 1 }}>
+      <div className="flex items-start justify-between gap-2">
+        <Link href={`/jobs/${job.id}`} className="text-[15px] font-semibold leading-snug min-w-0 break-words" style={{ color: COLORS.bodyText }}>
+          {job.organization ?? "-"}
+        </Link>
+        <div className="shrink-0 pt-0.5">
+          <FitStars jobId={job.id} fit={job.fit} reason={job.fit_reason} />
+        </div>
+      </div>
+
+      {(fields.duty || fields.work_location) && (
+        <p className="text-xs mt-1 leading-snug line-clamp-2" style={{ color: "#64748B" }}>
+          {[fields.duty, fields.work_location].filter(Boolean).join(" · ")}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <select
+          value={status}
+          onChange={(e) => changeStatus(e.target.value as JobStatus)}
+          disabled={saving}
+          aria-label={`${job.organization} 상태 변경`}
+          className={`rounded-lg px-2 py-1.5 border-0 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 ${STATUS_COLORS[status]} ${saving ? "opacity-50" : ""}`}
+          style={{ fontSize: 16 }}
+        >
+          {STATUSES.map(([val, label]) => (
+            <option key={val} value={val} className="bg-white text-gray-900 font-normal">
+              {label}
+            </option>
+          ))}
+        </select>
+        <span className="text-[11px]" style={{ color: "#64748B" }}>마감</span>
+        <DeadlinePill date={fields.application_end} time={fields.application_end_time} />
+      </div>
+
+      {(showStart || fields.applied_at || dated.length > 0) && (
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {showStart && (
+            <span className="text-xs px-2 py-0.5 rounded-md whitespace-nowrap" style={{ background: "#F8FAFC", color: "#475569", border: "1px solid #E2E8F0" }}>
+              접수시작 {fmtDateText(fields.application_start)}
+            </span>
+          )}
+          {fields.applied_at && (
+            <span className="text-xs px-2 py-0.5 rounded-md whitespace-nowrap" style={{ background: "#DCFCE7", color: "#15803D", border: "1px solid #BBF7D0" }}>
+              ✓ 제출 {fmtDateText(fields.applied_at)}
+            </span>
+          )}
+          {dated.map((m) => {
+            const kind: ChipKind = inactive || m.diff < 0 ? "past" : m.diff === 0 ? "today" : m.field === nextField ? "next" : "future";
+            const s = CHIP_STYLES[kind];
+            const dday = kind === "today" ? " · 오늘" : kind === "next" ? ` · D-${m.diff}` : "";
+            return (
+              <span
+                key={m.field}
+                className="text-xs px-2 py-0.5 rounded-md whitespace-nowrap"
+                style={{ background: s.bg, color: s.col, border: `1px solid ${s.border}`, fontWeight: s.weight }}
+              >
+                {m.label} {fmtDateText(m.date)}{dday}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {fields.written_exam_subjects && (
+        <p className="text-[11px] mt-2 leading-snug line-clamp-2" style={{ color: "#64748B" }}>
+          📝 {fields.written_exam_subjects}
+        </p>
+      )}
+    </div>
+  );
+}
+
 const COLSPAN = 16;
 
 function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
@@ -524,7 +646,7 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     { label: "서류마감",   cls: "px-1 text-center",        responsive: "", sortField: "application_end", width: DEADLINE_COL_WIDTH },
     { label: "서류제출",   cls: "px-0.5 text-center",      responsive: "hidden lg:table-cell", sortField: "applied_at", width: APPLIED_COL_WIDTH },
     { label: "서류발표",   cls: "px-0.5 text-center",      responsive: "hidden lg:table-cell", sortField: "doc_announcement_date", width: DATE_COL_WIDTH },
-    { label: "필기",       cls: "px-0.5 text-center",      responsive: "hidden lg:table-cell", sortField: "written_exam_date", width: DATE_COL_WIDTH },
+    { label: "필기",       cls: "px-0.5 text-center",      responsive: "hidden md:table-cell", sortField: "written_exam_date", width: DATE_COL_WIDTH },
     { label: "필기과목",   cls: "px-1 text-left",          responsive: "hidden xl:table-cell", width: SUBJECT_COL_WIDTH },
     { label: "면접1차",    cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date", width: DATE_COL_WIDTH },
     { label: "면접2차",    cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date_2", width: DATE_COL_WIDTH },
@@ -577,17 +699,44 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     syncing.current = false;
   }, []);
 
-  // 상태별 그룹으로 나누되, 그룹 내부에서는 상위에서 이미 적용된 정렬 순서를 유지
-  const groups = GROUP_DEFS.map((g) => ({
-    ...g,
-    jobs: jobs.filter((j) => g.statuses.includes(j.status)),
-  })).filter((g) => g.jobs.length > 0);
+  // 기본(마감임박순)·상태순일 때만 상태별 그룹으로 보여주고, 필기/면접/적합도 등 다른 기준으로 정렬하면
+  // 그룹 구분 없이 전체를 그 기준대로 한 줄로 나열한다 (그룹에 가려 정렬이 안 먹는 것처럼 보이던 문제 방지)
+  const grouped = !sortField || sortField === "application_end" || sortField === "status";
+  const groups = grouped
+    ? GROUP_DEFS.map((g) => ({
+        ...g,
+        jobs: jobs.filter((j) => g.statuses.includes(j.status)),
+      })).filter((g) => g.jobs.length > 0)
+    : [{ key: "all", label: "", accent: "", statuses: [] as JobStatus[], jobs }];
 
   let rowIndex = 0;
 
   return (
+    <>
+    {/* 모바일(md 미만): 고정 열 없이 카드 목록으로 표시 */}
     <div
-      className="rounded-xl bg-white"
+      className="md:hidden rounded-xl bg-white overflow-hidden"
+      style={{ border: `1px solid ${COLORS.cardBorder}`, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}
+    >
+      {groups.map((g) => (
+        <Fragment key={g.key}>
+          {grouped && (
+            <div className="py-1.5 px-3 flex items-center" style={{ background: "#F7FAFC", borderBottom: `1px solid ${COLORS.cardBorder}`, borderTop: `1px solid ${COLORS.cardBorder}` }}>
+              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style={{ background: g.accent }} />
+              <span className="text-sm font-bold" style={{ color: "#111827" }}>{g.label}</span>
+              <span className="text-xs ml-1.5" style={{ color: COLORS.metaText }}>{g.jobs.length}건</span>
+            </div>
+          )}
+          {g.jobs.map((job) => (
+            <MobileJobCard key={job.id} job={job} onStatusChange={onStatusChange} onToast={onToast} />
+          ))}
+        </Fragment>
+      ))}
+    </div>
+
+    {/* 태블릿·데스크톱(md 이상): 기존 표 */}
+    <div
+      className="hidden md:block rounded-xl bg-white"
       style={{
         border: `1px solid ${COLORS.cardBorder}`,
         boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
@@ -640,7 +789,7 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
           <tbody>
             {groups.map((g) => (
               <Fragment key={g.key}>
-                <GroupHeaderRow label={g.label} count={g.jobs.length} accent={g.accent} />
+                {grouped && <GroupHeaderRow label={g.label} count={g.jobs.length} accent={g.accent} />}
                 {g.jobs.map((job) => {
                   const zebra = rowIndex % 2 === 1;
                   rowIndex += 1;
@@ -654,5 +803,6 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
         </table>
       </div>
     </div>
+    </>
   );
 }

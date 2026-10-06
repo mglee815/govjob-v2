@@ -47,11 +47,27 @@ interface CalEvent {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
+// 같은 날 여러 일정이 겹칠 때 보여줄 순서: 마감(놓치면 치명적) → 필기 → 면접 → 발표 → 접수시작
+const EVENT_PRIORITY: Record<EventType, number> = {
+  app_end: 0,
+  written: 1,
+  interview1: 2,
+  interview2: 3,
+  doc_announce: 4,
+  final: 5,
+  app_start: 6,
+};
+
 function ymKey(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-// 하루치 일정 전체를 보여주는 팝오버 (더보기 클릭 시)
+function weekdayOf(dateKey: string) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return WEEKDAYS[new Date(y, m - 1, d).getDay()];
+}
+
+// 하루치 일정 전체를 보여주는 시트 (날짜 칸을 누르면 열림. 모바일에서는 아래에서 올라오는 시트)
 function DayDetail({
   dateKey,
   events,
@@ -64,29 +80,37 @@ function DayDetail({
   const [, m, d] = dateKey.split("-").map(Number);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 md:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[70vh] overflow-y-auto"
+        className="bg-white rounded-t-2xl md:rounded-xl shadow-xl w-full md:max-w-md max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "#E2E8F0" }}>
-          <span className="text-base font-bold text-gray-800">{m}월 {d}일 일정 ({events.length}건)</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="닫기">×</button>
+        <div className="sticky top-0 bg-white flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "#E2E8F0" }}>
+          <span className="text-base font-bold text-gray-800">
+            {m}월 {d}일 ({weekdayOf(dateKey)}) · {events.length}건
+          </span>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2 py-1" aria-label="닫기">×</button>
         </div>
-        <div className="p-3 space-y-1.5">
+        <div className="p-3 space-y-2 pb-6 md:pb-3">
           {events.map((ev, i) => (
             <Link
               key={i}
               href={`/jobs/${ev.job.id}`}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:opacity-80 text-sm"
+              className="block px-3 py-2.5 rounded-lg hover:opacity-80 text-sm"
               style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
             >
-              <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">
-                {EVENT_LABELS_FULL[ev.type]}{ev.time ? ` ${ev.time}` : ""}
-              </span>
-              <span className="truncate font-medium">{ev.job.organization ?? "-"}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">
+                  {EVENT_LABELS_FULL[ev.type]}{ev.time ? ` ${ev.time}` : ""}
+                </span>
+                <span className="font-semibold break-words min-w-0">{ev.job.organization ?? "-"}</span>
+              </div>
+              {ev.type === "written" && ev.job.written_exam_subjects && (
+                <p className="text-xs mt-1 opacity-80 leading-snug">📝 {ev.job.written_exam_subjects}</p>
+              )}
+              {ev.job.duty && <p className="text-xs mt-0.5 opacity-70 leading-snug line-clamp-1">{ev.job.duty}</p>}
             </Link>
           ))}
         </div>
@@ -108,6 +132,19 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
+  // 모바일에서 캘린더를 접어두면 목록이 바로 보이므로, 접힘 상태를 기억해 둠
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("govjob.calendarCollapsed") === "1") setCollapsed(true);
+    } catch {}
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      try { localStorage.setItem("govjob.calendarCollapsed", v ? "0" : "1"); } catch {}
+      return !v;
+    });
+  }
+
   // 모든 공고의 일정을 날짜별로 모아둠 (탈락/패스/마감 건 제외, 필터와 무관하게 항상 전체 기준)
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalEvent[]>();
@@ -122,10 +159,31 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
         map.set(key, arr);
       }
     }
+    for (const arr of map.values()) arr.sort((a, b) => EVENT_PRIORITY[a.type] - EVENT_PRIORITY[b.type]);
     return map;
   }, [jobs]);
 
   const todayKey = useMemo(() => ymKey(now.getFullYear(), now.getMonth(), now.getDate()), [now]);
+
+  // 모바일용 "다가오는 일정" 목록 (오늘부터 앞으로 8건)
+  const upcoming = useMemo(() => {
+    const out: { key: string; ev: CalEvent }[] = [];
+    const keys = Array.from(eventsByDate.keys()).filter((k) => k >= todayKey).sort();
+    for (const key of keys) {
+      for (const ev of eventsByDate.get(key)!) {
+        if (ev.type === "app_start") continue;
+        out.push({ key, ev });
+        if (out.length >= 8) return out;
+      }
+    }
+    return out;
+  }, [eventsByDate, todayKey]);
+
+  function ddayLabel(key: string) {
+    const [y, m, d] = key.split("-").map(Number);
+    const diff = Math.round((new Date(y, m - 1, d).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000);
+    return diff === 0 ? "오늘" : `D-${diff}`;
+  }
 
   const firstDay = new Date(year, month, 1);
   const startWeekday = firstDay.getDay();
@@ -170,7 +228,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
   return (
     <div className="rounded-xl bg-white" style={{ border: "1px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
       <div className="flex items-center justify-between px-3 py-2.5 border-b flex-wrap gap-1.5" style={{ borderColor: "#E2E8F0" }}>
-        <button onClick={() => setCollapsed((v) => !v)} className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+        <button onClick={toggleCollapsed} className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
           <span>📅 내 일정</span>
           <span className="text-xs font-normal text-gray-400">{monthEventCount}건</span>
           <span className="text-xs text-gray-400">{collapsed ? "▸" : "▾"}</span>
@@ -210,10 +268,16 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
             {cells.map((c) => {
               const events = eventsByDate.get(c.key) ?? [];
               const isToday = c.key === todayKey;
+              const hasEvents = events.length > 0;
               return (
                 <div
                   key={c.key}
-                  className="bg-white min-h-[64px] p-1"
+                  role={hasEvents ? "button" : undefined}
+                  tabIndex={hasEvents ? 0 : undefined}
+                  aria-label={hasEvents ? `${c.key} 일정 ${events.length}건 보기` : undefined}
+                  onClick={hasEvents ? () => setExpandedDate(c.key) : undefined}
+                  onKeyDown={hasEvents ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedDate(c.key); } } : undefined}
+                  className={`bg-white min-h-[52px] md:min-h-[64px] p-1 ${hasEvents ? "cursor-pointer hover:bg-indigo-50/50 active:bg-indigo-50" : ""}`}
                   style={isToday ? { boxShadow: "inset 0 0 0 2px #4F46E5" } : undefined}
                 >
                   <div
@@ -222,32 +286,69 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                   >
                     {c.day}
                   </div>
-                  <div className="space-y-0.5">
+
+                  {/* 모바일: 칸이 좁아 글씨가 안 읽히므로 일정 종류별 색 점으로 표시 (누르면 그날 전체 일정이 열림) */}
+                  {hasEvents && (
+                    <div className="md:hidden flex flex-wrap gap-[3px] mt-1.5 px-0.5">
+                      {events.slice(0, 6).map((ev, i) => (
+                        <span key={i} className="w-2 h-2 rounded-full inline-block" style={{ background: EVENT_DEFS[ev.type].col }} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 데스크톱: 칩 2개 + 더보기. 칩을 눌러도 첫 번째 기관으로 바로 가지 않고, 그날 전체 일정이 열림 */}
+                  <div className="hidden md:block space-y-0.5">
                     {events.slice(0, 2).map((ev, i) => (
-                      <Link
+                      <div
                         key={i}
-                        href={`/jobs/${ev.job.id}`}
                         title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}${ev.time ? ` ${ev.time}` : ""}`}
                         className="flex items-center gap-0.5 truncate text-[11px] px-1 rounded leading-[16px]"
                         style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
                       >
                         <span className="font-semibold shrink-0">{EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}</span>
                         <span className="truncate">{ev.job.organization ?? "-"}</span>
-                      </Link>
+                      </div>
                     ))}
                     {events.length > 2 && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setExpandedDate(c.key); }}
-                        className="w-full text-left text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline px-1 leading-none font-medium"
-                      >
+                      <span className="block text-[11px] text-indigo-500 px-1 leading-none font-medium">
                         +{events.length - 2}건 더보기
-                      </button>
+                      </span>
                     )}
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* 모바일 전용: 다가오는 일정 목록 (정렬·캘린더를 안 눌러도 가까운 시험·마감을 바로 확인) */}
+          {upcoming.length > 0 && (
+            <div className="md:hidden mt-3 pt-2 border-t" style={{ borderColor: "#EDF2F7" }}>
+              <p className="text-xs font-semibold px-1 mb-1" style={{ color: "#718096" }}>다가오는 일정</p>
+              <ul>
+                {upcoming.map(({ key, ev }, i) => {
+                  const [, m, d] = key.split("-").map(Number);
+                  return (
+                    <li key={i}>
+                      <button
+                        onClick={() => setExpandedDate(key)}
+                        className="w-full flex items-center gap-2 py-2 px-1 text-left active:bg-gray-50"
+                      >
+                        <span className="w-[62px] shrink-0 text-xs text-gray-500">{m}/{d}({weekdayOf(key)})</span>
+                        <span
+                          className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded"
+                          style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
+                        >
+                          {EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}
+                        </span>
+                        <span className="truncate text-sm text-gray-800 min-w-0">{ev.job.organization ?? "-"}</span>
+                        <span className="ml-auto shrink-0 text-[11px] text-gray-400">{ddayLabel(key)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
