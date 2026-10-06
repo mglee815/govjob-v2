@@ -171,7 +171,8 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
     const keys = Array.from(eventsByDate.keys()).filter((k) => k >= todayKey).sort();
     for (const key of keys) {
       for (const ev of eventsByDate.get(key)!) {
-        if (ev.type === "app_start") continue;
+        // 필기시험과 서류마감(놓치면 안 되는 일정)만 보여줌. 서류발표·면접·최종발표는 캘린더/표에서 확인
+        if (ev.type !== "written" && ev.type !== "app_end") continue;
         out.push({ key, ev });
         if (out.length >= 10) return out;
       }
