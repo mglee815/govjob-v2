@@ -58,6 +58,8 @@ const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: s
   { key: "doc_fail",       label: "서류불합격",           statuses: ["doc_fail"], accent: "#A32D2D" },
   { key: "written_fail",   label: "필기불합격",           statuses: ["written_fail"], accent: "#BE185D" },
   { key: "interview_fail", label: "면접불합격",           statuses: ["interview_fail"], accent: "#9F1239" },
+  { key: "written_skip",   label: "필기패스(미응시)",     statuses: ["written_skip"], accent: "#9CA3AF" },
+  { key: "ineligible",     label: "자격미달",            statuses: ["ineligible"], accent: "#9CA3AF" },
   { key: "withdrawn",      label: "패스(미지원)",         statuses: ["withdrawn"], accent: "#9CA3AF" },
   { key: "expired",        label: "마감(미지원)",         statuses: ["expired"], accent: "#9CA3AF" },
 ];
@@ -527,7 +529,7 @@ const MOBILE_MILESTONES: { field: "doc_announcement_date" | "written_exam_date" 
   { field: "announcement_date",     label: "최종발표" },
 ];
 
-const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "interview_fail", "withdrawn", "expired"];
+const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "withdrawn", "expired", "ineligible"];
 
 // 모바일 전용 카드: 고정 열 없이 한 공고의 핵심(마감·필기·면접·발표 일정)을 한 화면에 보여줌
 function MobileJobCard({ job, onStatusChange, onToast }: { job: Job; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {

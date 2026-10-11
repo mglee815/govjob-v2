@@ -10,6 +10,7 @@ export type JobStatus =
   | "written_wait"   // 필기대기
   | "written_pass"   // 필기합격
   | "written_fail"   // 필기불합격
+  | "written_skip"   // 필기패스(미응시)
   // 면접
   | "interview_wait"  // 면접대기
   | "interview_pass"  // 면접합격
@@ -18,7 +19,8 @@ export type JobStatus =
   | "final_pass"     // 최종합격
   // 기타
   | "withdrawn"      // 패스(미지원)
-  | "expired";       // 마감(미지원)
+  | "expired"        // 마감(미지원)
+  | "ineligible";    // 자격미달
 
 export const STATUS_LABELS: Record<JobStatus, string> = {
   monitoring:     "모니터링",
@@ -28,12 +30,14 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   written_wait:   "필기대기",
   written_pass:   "필기합격",
   written_fail:   "필기불합격",
+  written_skip:   "필기패스(미응시)",
   interview_wait: "면접대기",
   interview_pass: "면접합격",
   interview_fail: "면접불합격",
   final_pass:     "최종합격",
   withdrawn:      "패스(미지원)",
   expired:        "마감(미지원)",
+  ineligible:     "자격미달",
 };
 
 // 배경은 모두 동일한 무채색(회색)으로 통일하고, 글자색만 상태별로 구분한다.
@@ -48,12 +52,14 @@ export const STATUS_COLORS: Record<JobStatus, string> = {
   written_wait:   UNIFORM_STATUS_COLOR,
   written_pass:   UNIFORM_STATUS_COLOR,
   written_fail:   UNIFORM_STATUS_COLOR,
+  written_skip:   UNIFORM_STATUS_COLOR,
   interview_wait: UNIFORM_STATUS_COLOR,
   interview_pass: UNIFORM_STATUS_COLOR,
   interview_fail: UNIFORM_STATUS_COLOR,
   final_pass:     UNIFORM_STATUS_COLOR,
   withdrawn:      UNIFORM_STATUS_COLOR,
   expired:        UNIFORM_STATUS_COLOR,
+  ineligible:     UNIFORM_STATUS_COLOR,
 };
 
 export interface Job {

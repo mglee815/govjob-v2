@@ -232,12 +232,14 @@ doc_fail        서류불합격
 written_wait    필기대기
 written_pass    필기합격
 written_fail    필기불합격
+written_skip    필기패스(미응시)
 interview_wait  면접대기
 interview_pass  면접합격
 interview_fail  면접불합격
 final_pass      최종합격
 withdrawn       패스(미지원)
 expired         마감(미지원)
+ineligible      자격미달
 ```
 
 DB 초기화가 필요하면 `supabase-schema.sql`을 Supabase SQL Editor에서 실행. 컬럼 추가 등 작은 마이그레이션은 `SUPABASE_DB_URL`이 설정되어 있으면 `scripts/run-sql.mjs`로 직접 실행 (위 "환경변수" 섹션 참고).

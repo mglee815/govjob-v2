@@ -23,13 +23,13 @@ const KPI_DEFS: {
   {
     key: "submitted",
     label: "서류제출 (누적)",
-    statuses: ["applied", "doc_fail", "written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["applied", "doc_fail", "written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
     bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600",
   },
   {
     key: "doc_passed",
     label: "서류합격 (누적)",
-    statuses: ["written_wait", "written_pass", "written_fail", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
     failStatuses: ["doc_fail"],
     bg: "bg-green-50", border: "border-green-200 hover:border-green-400", num: "text-green-600",
   },
@@ -53,6 +53,7 @@ const KPI_DEFS: {
 const NOT_APPLICABLE_STATUSES: JobStatus[] = [
   "applied", "doc_fail", "written_wait", "written_pass", "written_fail",
   "interview_wait", "interview_pass", "interview_fail", "final_pass", "withdrawn", "expired",
+  "written_skip", "ineligible",
 ];
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
@@ -64,12 +65,14 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "필기대기",    value: "written_wait" },
   { label: "필기합격",    value: "written_pass" },
   { label: "필기불합격",  value: "written_fail" },
+  { label: "필기패스",    value: "written_skip" },
   { label: "면접대기",    value: "interview_wait" },
   { label: "면접합격",    value: "interview_pass" },
   { label: "면접불합격",  value: "interview_fail" },
   { label: "최종합격",    value: "final_pass" },
   { label: "패스(미지원)", value: "withdrawn" },
   { label: "마감(미지원)", value: "expired" },
+  { label: "자격미달",    value: "ineligible" },
 ];
 
 // 연도 판정: application_end가 없으면 다른 일정 필드, 그래도 없으면 메모 속 "20xx" 연도를 최후 fallback으로 사용
