@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   interview_date DATE,        -- 면접일 (1차)
   interview_date_2 DATE,      -- 면접일 (2차)
   announcement_date DATE,     -- 최종발표일
+  written_announcement_date DATE,   -- 필기 합격자 발표일
+  interview_announcement_date DATE, -- 1차 면접 합격자 발표일
+  join_date DATE,                   -- 입사(임용) 예정일
+  estimated_fields TEXT,            -- "10월 3주차"처럼 확정 전인 일정 컬럼명 목록(쉼표 구분) - 화면에 "~" 표시
   notes TEXT,                 -- 내 메모
   status_changed_at DATE,     -- 상태를 마지막으로 바꾼 날짜 (서류제출/필기응시 등으로 전환한 시점 기록)
   applied_at DATE,            -- 실제로 "서류제출" 상태로 처음 바꾼 날짜 (이후 상태가 바뀌어도 유지됨)
@@ -69,3 +73,4 @@ CREATE TRIGGER jobs_updated_at
 
 -- 기존 테이블에 written_exam_subjects가 없다면 아래 한 줄만 SQL Editor에서 실행 (2026-08 추가)
 -- ALTER TABLE jobs ADD COLUMN IF NOT EXISTS written_exam_subjects TEXT;
+-- (2026-10 추가) ALTER TABLE jobs ADD COLUMN IF NOT EXISTS written_announcement_date DATE, ADD COLUMN IF NOT EXISTS interview_announcement_date DATE, ADD COLUMN IF NOT EXISTS join_date DATE, ADD COLUMN IF NOT EXISTS estimated_fields TEXT;

@@ -125,6 +125,11 @@ read_page/get_page_text로도 정보가 부족하면 (이미지 기반 공고, P
 - `interview_date`: 면접일 1차 (YYYY-MM-DD, 없으면 null)
 - `interview_date_2`: 면접일 2차 (YYYY-MM-DD, 없으면 null)
 - `announcement_date`: 최종발표일 (YYYY-MM-DD, 없으면 null)
+- `written_announcement_date`: **필기 합격자 발표일** (YYYY-MM-DD, 없으면 null)
+- `interview_announcement_date`: **1차 면접 합격자 발표일** (YYYY-MM-DD, 없으면 null)
+- `join_date`: **입사(임용) 예정일** (YYYY-MM-DD, 없으면 null)
+- `estimated_fields`: **공고에 "10월 3주차", "11월 중순", "12월 초"처럼 정확한 날짜 없이 시기만 적힌 일정**은 대표 날짜를 넣고(**"N주 차"면 그 주 금요일**로 넣어야 그 주 안에는 "지난 일정"으로 사라지지 않음, 중순=15일 근처 평일, 초=첫 영업일 근처, 말=25일경 등) 해당 컬럼 이름을 쉼표로 이어서 이 필드에 적는다. 예: `"interview_date,interview_announcement_date,announcement_date"`. 화면에는 "~10/19"처럼 확정 전 표시가 붙고, 사용자가 날짜를 직접 확정 입력하면 자동으로 해제된다. **정확한 날짜가 공고에 있으면 estimated_fields에 넣지 않는다.** 시기조차 없으면 null로 두고 날짜를 지어내지 말 것.
+  - 전형 일정은 서류발표 → 필기 → 필기발표 → 1차면접 → 1차면접발표 → 2차면접 → 최종발표 → 입사 순서로 **공고에 있는 단계는 전부** 채울 것 (필기발표·1차발표·입사일을 빠뜨리지 말 것).
 - `notes`: **개인 메모 — 규리님 프로필에 비춰 맞춤형으로 작성.** 단순히 공고 내용을 요약·복붙하지 말고, 아래 관점을 섞어서 작성:
   - 전형 일정 중 표에 못 담은 세부사항(가점 조건, 동시진행 공고, 예비소집일 등)
   - 이 공고의 직무·자소서 문항이 프로필의 어떤 경력(닐슨/충남연구원 등)·역량과 연결되는지 한두 문장으로 힌트

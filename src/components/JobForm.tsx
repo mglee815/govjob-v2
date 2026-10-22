@@ -4,8 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Job, JobInsert, JobStatus, STATUS_LABELS } from "@/lib/types";
+import { removeEstimate } from "@/lib/estimates";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
+
+// 확정 전("예정") 표시를 달 수 있는 일정 컬럼 - 폼에서 날짜를 바꾸면 그 컬럼의 예정 표시를 해제
+const SCHEDULE_FIELD_KEYS = [
+  "doc_announcement_date", "written_exam_date", "written_announcement_date", "interview_date",
+  "interview_announcement_date", "interview_date_2", "announcement_date", "join_date",
+];
 
 interface Props {
   initialData?: Partial<Job>;
@@ -41,9 +48,13 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
     application_end_time: initialData.application_end_time ?? "",
     doc_announcement_date: initialData.doc_announcement_date ?? "",
     written_exam_date: initialData.written_exam_date ?? "",
+    written_announcement_date: initialData.written_announcement_date ?? "",
     interview_date: initialData.interview_date ?? "",
+    interview_announcement_date: initialData.interview_announcement_date ?? "",
     interview_date_2: initialData.interview_date_2 ?? "",
     announcement_date: initialData.announcement_date ?? "",
+    join_date: initialData.join_date ?? "",
+    estimated_fields: initialData.estimated_fields ?? null,
     notes: initialData.notes ?? "",
     status: initialData.status ?? "monitoring",
     status_changed_at: initialData.status_changed_at ?? null,
@@ -91,9 +102,17 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
       application_end_time: form.application_end_time || null,
       doc_announcement_date: form.doc_announcement_date || null,
       written_exam_date: form.written_exam_date || null,
+      written_announcement_date: form.written_announcement_date || null,
       interview_date: form.interview_date || null,
+      interview_announcement_date: form.interview_announcement_date || null,
       interview_date_2: form.interview_date_2 || null,
       announcement_date: form.announcement_date || null,
+      join_date: form.join_date || null,
+      // 날짜를 새로 입력·수정한 일정은 "예정" 표시를 해제
+      estimated_fields: SCHEDULE_FIELD_KEYS.reduce(
+        (acc, k) => ((form as Record<string, unknown>)[k] !== ((initialData as Record<string, unknown>)[k] ?? "") ? removeEstimate(acc, k) : acc),
+        form.estimated_fields ?? null
+      ),
       organization: form.organization || null,
       duty: form.duty || null,
       employment_type: form.employment_type || null,
@@ -332,9 +351,12 @@ export default function JobForm({ initialData = {}, jobId }: Props) {
             { key: "application_end",      label: "서류 마감일" },
             { key: "doc_announcement_date",label: "서류 발표일" },
             { key: "written_exam_date",    label: "필기시험일" },
+            { key: "written_announcement_date", label: "필기 발표일" },
             { key: "interview_date",       label: "면접일 (1차)" },
+            { key: "interview_announcement_date", label: "1차 면접 발표일" },
             { key: "interview_date_2",     label: "면접일 (2차)" },
             { key: "announcement_date",    label: "최종 발표일" },
+            { key: "join_date",            label: "입사 예정일" },
           ].map(({ key, label }) => (
             <div key={key}>
               <label className="label">{label}</label>

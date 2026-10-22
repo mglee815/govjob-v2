@@ -84,9 +84,13 @@ export interface Job {
   application_end_time: string | null;
   doc_announcement_date: string | null;
   written_exam_date: string | null;
+  written_announcement_date: string | null;   // 필기 합격자 발표
   interview_date: string | null;
+  interview_announcement_date: string | null; // 1차 면접 합격자 발표
   interview_date_2: string | null;
-  announcement_date: string | null;
+  announcement_date: string | null;           // 최종 합격자 발표
+  join_date: string | null;                   // 입사(임용) 예정일
+  estimated_fields: string | null;            // "10월 3주차"처럼 확정 전인 일정 컬럼명 목록 (쉼표 구분)
   notes: string | null;
   status: JobStatus;
   status_changed_at: string | null;

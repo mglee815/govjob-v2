@@ -216,6 +216,10 @@ SUPABASE_KEY=sb_publishable_kgQoE7waNJuWL8ztAxni-w_Vqy9w63R
 | interview_date | DATE | 면접일 1차 |
 | interview_date_2 | DATE | 면접일 2차 |
 | announcement_date | DATE | 최종발표일 |
+| written_announcement_date | DATE | 필기 합격자 발표일 |
+| interview_announcement_date | DATE | 1차 면접 합격자 발표일 |
+| join_date | DATE | 입사(임용) 예정일 |
+| estimated_fields | TEXT | 확정 전("N월 N주차" 등)인 일정 컬럼명 목록(쉼표 구분). 화면에 "~" 표시 |
 | fit | INTEGER | 직무 적합도 (0=미평가, 1~5 별점) |
 | fit_reason | TEXT | 적합도 판단 근거 |
 | notes | TEXT | 개인 메모 |

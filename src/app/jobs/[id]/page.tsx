@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Job, JobStatus, STATUS_LABELS } from "@/lib/types";
 import StatusBadge from "@/components/StatusBadge";
+import { isEstimated } from "@/lib/estimates";
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   if (!value) return null;
@@ -167,11 +168,25 @@ export default function JobDetailPage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">일정</h2>
         <Row label="접수 시작" value={job.application_start ? new Date(job.application_start).toLocaleDateString("ko-KR") : null} />
         <Row label="접수 마감" value={job.application_end ? `${new Date(job.application_end).toLocaleDateString("ko-KR")}${job.application_end_time ? ` ${job.application_end_time}` : ""}` : null} />
-        <Row label="서류 발표" value={job.doc_announcement_date ? new Date(job.doc_announcement_date).toLocaleDateString("ko-KR") : null} />
-        <Row label="필기시험" value={job.written_exam_date ? new Date(job.written_exam_date).toLocaleDateString("ko-KR") : null} />
-        <Row label="면접 1차" value={job.interview_date ? new Date(job.interview_date).toLocaleDateString("ko-KR") : null} />
-        <Row label="면접 2차" value={job.interview_date_2 ? new Date(job.interview_date_2).toLocaleDateString("ko-KR") : null} />
-        <Row label="최종발표" value={job.announcement_date ? new Date(job.announcement_date).toLocaleDateString("ko-KR") : null} />
+        {([
+          ["서류 발표", "doc_announcement_date"],
+          ["필기시험", "written_exam_date"],
+          ["필기 발표", "written_announcement_date"],
+          ["면접 1차", "interview_date"],
+          ["1차 면접 발표", "interview_announcement_date"],
+          ["면접 2차", "interview_date_2"],
+          ["최종발표", "announcement_date"],
+          ["입사 예정", "join_date"],
+        ] as const).map(([label, field]) => {
+          const v = job[field];
+          return (
+            <Row
+              key={field}
+              label={label}
+              value={v ? `${isEstimated(job.estimated_fields, field) ? "~ " : ""}${new Date(v).toLocaleDateString("ko-KR")}${isEstimated(job.estimated_fields, field) ? " (예정, 확정 전)" : ""}` : null}
+            />
+          );
+        })}
       </div>
 
       {/* 메모 */}

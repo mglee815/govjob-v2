@@ -6,6 +6,7 @@ import { Job, JobStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { daysFromToday, parseLocalDate, todayStr } from "@/lib/dates";
 import { SortField, SortDir } from "@/lib/sort";
+import { isEstimated, removeEstimate } from "@/lib/estimates";
 
 const STATUSES = Object.entries(STATUS_LABELS) as [JobStatus, string][];
 
@@ -280,9 +281,13 @@ function useJobState(job: Job, onStatusChange?: Props["onStatusChange"], onToast
     application_end_time: job.application_end_time,
     doc_announcement_date: job.doc_announcement_date,
     written_exam_date: job.written_exam_date,
+    written_announcement_date: job.written_announcement_date,
     interview_date: job.interview_date,
+    interview_announcement_date: job.interview_announcement_date,
     interview_date_2: job.interview_date_2,
     announcement_date: job.announcement_date,
+    join_date: job.join_date,
+    estimated_fields: job.estimated_fields,
     status_changed_at: job.status_changed_at,
     applied_at: job.applied_at,
     written_exam_subjects: job.written_exam_subjects,
@@ -296,9 +301,12 @@ function useJobState(job: Job, onStatusChange?: Props["onStatusChange"], onToast
   const nextLabel = nextMilestone({ ...job, ...fields, status });
 
   async function saveField(field: keyof typeof fields, value: string | null) {
-    const { error } = await supabase.from("jobs").update({ [field]: value }).eq("id", job.id);
+    const updates: Record<string, string | null> = { [field]: value };
+    // 날짜를 직접 입력해 확정하면 그 일정의 "예정(~)" 표시를 해제
+    if (isEstimated(fields.estimated_fields, field)) updates.estimated_fields = removeEstimate(fields.estimated_fields, field);
+    const { error } = await supabase.from("jobs").update(updates).eq("id", job.id);
     if (!error) {
-      setFields((f) => ({ ...f, [field]: value }));
+      setFields((f) => ({ ...f, ...updates }));
       onToast?.("저장되었습니다", "success");
     } else if (isMissingColumnError(error)) {
       onToast?.("이 항목은 아직 DB에 컬럼이 없어 저장할 수 없습니다 (관리자에게 DB 업데이트 요청 필요)", "error");
@@ -349,10 +357,49 @@ function useJobState(job: Job, onStatusChange?: Props["onStatusChange"], onToast
   return { status, saving, fields, nextLabel, saveField, changeStatus };
 }
 
+// 클릭해서 날짜를 수정할 수 있는 일정 칸. 공고에 대략적인 시기만 있어 확정 전인 날짜는 "~"를 붙여 구분한다.
+function ScheduleCell({
+  field,
+  fields,
+  onSave,
+  bg,
+  responsive,
+  last,
+  children,
+}: {
+  field: string;
+  fields: Record<string, string | null>;
+  onSave: (field: string, value: string | null) => void;
+  bg: string;
+  responsive: string;
+  last?: boolean;
+  children?: React.ReactNode;
+}) {
+  const value = fields[field] ?? null;
+  const est = !!value && isEstimated(fields.estimated_fields, field);
+  return (
+    <td
+      className={`py-1.5 ${last ? "pl-0.5 pr-1.5" : "px-0.5"} text-center text-xs whitespace-nowrap ${responsive}`}
+      style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}
+    >
+      <InlineDateCell value={value} onSave={(v) => onSave(field, v)}>
+        <span
+          title={est ? "공고에 대략적인 시기만 있어 확정 전인 날짜 (클릭해서 날짜를 직접 입력하면 확정으로 바뀜)" : undefined}
+          style={est ? { fontStyle: "italic", opacity: 0.75 } : undefined}
+        >
+          {est ? "~" : ""}{fmtDateText(value)}
+        </span>
+      </InlineDateCell>
+      {children}
+    </td>
+  );
+}
+
 function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean; onStatusChange?: Props["onStatusChange"]; onToast?: Props["onToast"] }) {
   const { status, saving, fields, nextLabel, saveField, changeStatus } = useJobState(job, onStatusChange, onToast);
   const [orgExpanded, setOrgExpanded] = useState(false);
   const bg = zebra ? COLORS.rowOdd : COLORS.rowEven;
+  const onSaveDate = (f: string, v: string | null) => saveField(f as keyof typeof fields, v);
 
   function handleStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     e.stopPropagation();
@@ -465,49 +512,31 @@ function Row({ job, zebra, onStatusChange, onToast }: { job: Job; zebra: boolean
       </td>
 
       {/* 서류발표 - 서류전형이 적격심사인지 배수제인지(doc_screening_ratio) 함께 표시 */}
-      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden lg:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
-        <InlineDateCell value={fields.doc_announcement_date} onSave={(v) => saveField("doc_announcement_date", v)}>
-          {fmtDateText(fields.doc_announcement_date)}
-        </InlineDateCell>
+      <ScheduleCell field="doc_announcement_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden lg:table-cell">
         {job.doc_screening_ratio && (
           <div className="text-[9px] mt-0.5 text-center truncate" style={{ color: COLORS.metaText }} title={job.doc_screening_ratio}>
             {job.doc_screening_ratio}
           </div>
         )}
-      </td>
+      </ScheduleCell>
 
       {/* 필기 - 태블릿(md)부터 보이게 함 (시험 날짜는 가장 자주 확인하는 값) */}
-      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden md:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
-        <InlineDateCell value={fields.written_exam_date} onSave={(v) => saveField("written_exam_date", v)}>
-          {fmtDateText(fields.written_exam_date)}
-        </InlineDateCell>
-      </td>
+      <ScheduleCell field="written_exam_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden md:table-cell" />
+
+      {/* 필기발표 */}
+      <ScheduleCell field="written_announcement_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" />
 
       {/* 필기과목 - 반드시 채워두는 항목이라 별도 칸으로 분리 */}
       <td className="py-1.5 px-1 hidden xl:table-cell" style={{ background: bg, width: SUBJECT_COL_WIDTH, minWidth: SUBJECT_COL_WIDTH, maxWidth: SUBJECT_COL_WIDTH }}>
         <InlineTextCell value={fields.written_exam_subjects} onSave={(v) => saveField("written_exam_subjects", v)} widthClass="w-full" />
       </td>
 
-      {/* 면접1 */}
-      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
-        <InlineDateCell value={fields.interview_date} onSave={(v) => saveField("interview_date", v)}>
-          {fmtDateText(fields.interview_date)}
-        </InlineDateCell>
-      </td>
-
-      {/* 면접2 */}
-      <td className="py-1.5 px-0.5 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
-        <InlineDateCell value={fields.interview_date_2} onSave={(v) => saveField("interview_date_2", v)}>
-          {fmtDateText(fields.interview_date_2)}
-        </InlineDateCell>
-      </td>
-
-      {/* 최종발표 */}
-      <td className="py-1.5 pl-0.5 pr-1.5 text-center text-xs whitespace-nowrap hidden xl:table-cell" style={{ background: bg, color: COLORS.metaText, width: DATE_COL_WIDTH, minWidth: DATE_COL_WIDTH, maxWidth: DATE_COL_WIDTH }}>
-        <InlineDateCell value={fields.announcement_date} onSave={(v) => saveField("announcement_date", v)}>
-          {fmtDateText(fields.announcement_date)}
-        </InlineDateCell>
-      </td>
+      {/* 면접1 / 1차발표 / 면접2 / 최종발표 / 입사 */}
+      <ScheduleCell field="interview_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" />
+      <ScheduleCell field="interview_announcement_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" />
+      <ScheduleCell field="interview_date_2" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" />
+      <ScheduleCell field="announcement_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" />
+      <ScheduleCell field="join_date" fields={fields} onSave={onSaveDate} bg={bg} responsive="hidden xl:table-cell" last />
     </tr>
   );
 }
@@ -521,12 +550,18 @@ const CHIP_STYLES: Record<ChipKind, { bg: string; col: string; border: string; w
   future: { bg: "#F8FAFC", col: "#475569", border: "#E2E8F0", weight: 500 },
 };
 
-const MOBILE_MILESTONES: { field: "doc_announcement_date" | "written_exam_date" | "interview_date" | "interview_date_2" | "announcement_date"; label: string }[] = [
-  { field: "doc_announcement_date", label: "서류발표" },
-  { field: "written_exam_date",     label: "필기" },
-  { field: "interview_date",        label: "면접1" },
-  { field: "interview_date_2",      label: "면접2" },
-  { field: "announcement_date",     label: "최종발표" },
+const MOBILE_MILESTONES: {
+  field: "doc_announcement_date" | "written_exam_date" | "written_announcement_date" | "interview_date" | "interview_announcement_date" | "interview_date_2" | "announcement_date" | "join_date";
+  label: string;
+}[] = [
+  { field: "doc_announcement_date",       label: "서류발표" },
+  { field: "written_exam_date",           label: "필기" },
+  { field: "written_announcement_date",   label: "필기발표" },
+  { field: "interview_date",              label: "면접1" },
+  { field: "interview_announcement_date", label: "1차발표" },
+  { field: "interview_date_2",            label: "면접2" },
+  { field: "announcement_date",           label: "최종발표" },
+  { field: "join_date",                   label: "입사" },
 ];
 
 const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "withdrawn", "expired", "ineligible"];
@@ -539,8 +574,10 @@ function MobileJobCard({ job, onStatusChange, onToast }: { job: Job; onStatusCha
   const dated = MOBILE_MILESTONES
     .map((m) => ({ ...m, date: fields[m.field], diff: daysFromToday(fields[m.field]) }))
     .filter((m): m is typeof m & { date: string; diff: number } => m.diff !== null);
-  // 아직 안 지난 일정 중 가장 가까운 것을 강조 (탈락·패스 건은 강조 없이 흐리게)
-  const nextField = inactive ? null : dated.find((m) => m.diff >= 0)?.field ?? null;
+  // 아직 안 지난 일정 중 날짜가 가장 가까운 것을 강조 (탈락·패스 건은 강조 없이 흐리게)
+  const nextField = inactive
+    ? null
+    : dated.filter((m) => m.diff >= 0).sort((a, b) => a.diff - b.diff)[0]?.field ?? null;
 
   const startDiff = daysFromToday(fields.application_start);
   const showStart = startDiff !== null && startDiff > 0 && !inactive;
@@ -603,7 +640,7 @@ function MobileJobCard({ job, onStatusChange, onToast }: { job: Job; onStatusCha
                 className="text-xs px-2 py-0.5 rounded-md whitespace-nowrap"
                 style={{ background: s.bg, color: s.col, border: `1px solid ${s.border}`, fontWeight: s.weight }}
               >
-                {m.label} {fmtDateText(m.date)}{dday}
+                {m.label} {isEstimated(fields.estimated_fields, m.field) ? "~" : ""}{fmtDateText(m.date)}{dday}
               </span>
             );
           })}
@@ -619,7 +656,7 @@ function MobileJobCard({ job, onStatusChange, onToast }: { job: Job; onStatusCha
   );
 }
 
-const COLSPAN = 16;
+const COLSPAN = 19;
 
 function GroupHeaderRow({ label, count, accent }: { label: string; count: number; accent: string }) {
   return (
@@ -649,10 +686,13 @@ export default function JobTable({ jobs, onStatusChange, onToast, sortField, sor
     { label: "서류제출",   cls: "px-0.5 text-center",      responsive: "hidden lg:table-cell", sortField: "applied_at", width: APPLIED_COL_WIDTH },
     { label: "서류발표",   cls: "px-0.5 text-center",      responsive: "hidden lg:table-cell", sortField: "doc_announcement_date", width: DATE_COL_WIDTH },
     { label: "필기",       cls: "px-0.5 text-center",      responsive: "hidden md:table-cell", sortField: "written_exam_date", width: DATE_COL_WIDTH },
+    { label: "필기발표",   cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "written_announcement_date", width: DATE_COL_WIDTH },
     { label: "필기과목",   cls: "px-1 text-left",          responsive: "hidden xl:table-cell", width: SUBJECT_COL_WIDTH },
     { label: "면접1차",    cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date", width: DATE_COL_WIDTH },
+    { label: "1차발표",    cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_announcement_date", width: DATE_COL_WIDTH },
     { label: "면접2차",    cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "interview_date_2", width: DATE_COL_WIDTH },
-    { label: "최종발표",   cls: "pl-0.5 pr-1.5 text-center", responsive: "hidden xl:table-cell", sortField: "announcement_date", width: DATE_COL_WIDTH },
+    { label: "최종발표",   cls: "px-0.5 text-center",      responsive: "hidden xl:table-cell", sortField: "announcement_date", width: DATE_COL_WIDTH },
+    { label: "입사",       cls: "pl-0.5 pr-1.5 text-center", responsive: "hidden xl:table-cell", sortField: "join_date", width: DATE_COL_WIDTH },
   ];
 
   // 헤더 클릭 한 번으로 오름차순/내림차순 토글 (같은 컬럼 재클릭 시 방향 반전)

@@ -12,9 +12,12 @@ export type SortField =
   | "applied_at"
   | "doc_announcement_date"
   | "written_exam_date"
+  | "written_announcement_date"
   | "interview_date"
+  | "interview_announcement_date"
   | "interview_date_2"
   | "announcement_date"
+  | "join_date"
   | "created_at";
 
 export type SortDir = "asc" | "desc";
@@ -25,9 +28,12 @@ const DATE_FIELDS = new Set<SortField>([
   "applied_at",
   "doc_announcement_date",
   "written_exam_date",
+  "written_announcement_date",
   "interview_date",
+  "interview_announcement_date",
   "interview_date_2",
   "announcement_date",
+  "join_date",
   "created_at",
 ]);
 
@@ -37,9 +43,12 @@ export const SCHEDULE_SORT_FIELDS = new Set<SortField>([
   "application_end",
   "doc_announcement_date",
   "written_exam_date",
+  "written_announcement_date",
   "interview_date",
+  "interview_announcement_date",
   "interview_date_2",
   "announcement_date",
+  "join_date",
 ]);
 
 const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "withdrawn", "expired", "ineligible"];

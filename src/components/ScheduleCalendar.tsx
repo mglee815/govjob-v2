@@ -3,17 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Job, JobStatus } from "@/lib/types";
+import { isEstimated } from "@/lib/estimates";
 
-type EventType = "app_start" | "app_end" | "doc_announce" | "written" | "interview1" | "interview2" | "final";
+type EventType =
+  | "app_start" | "app_end" | "doc_announce"
+  | "written" | "written_announce"
+  | "interview1" | "interview1_announce" | "interview2"
+  | "final" | "join";
 
 const EVENT_DEFS: Record<EventType, { label: string; bg: string; col: string }> = {
-  app_start:    { label: "접수", bg: "#EEF2FF", col: "#4338CA" },
-  app_end:      { label: "마감", bg: "#FCEBEB", col: "#A32D2D" },
-  doc_announce: { label: "서류발표", bg: "#E6F1FB", col: "#0C447C" },
-  written:      { label: "필기", bg: "#FAEEDA", col: "#633806" },
-  interview1:   { label: "면접1", bg: "#F3E8FF", col: "#6B21A8" },
-  interview2:   { label: "면접2", bg: "#FCE7F3", col: "#9D174D" },
-  final:        { label: "최종발표", bg: "#DCFCE7", col: "#15803D" },
+  app_start:           { label: "접수", bg: "#EEF2FF", col: "#4338CA" },
+  app_end:             { label: "마감", bg: "#FCEBEB", col: "#A32D2D" },
+  doc_announce:        { label: "서류발표", bg: "#E6F1FB", col: "#0C447C" },
+  written:             { label: "필기", bg: "#FAEEDA", col: "#633806" },
+  written_announce:    { label: "필기발표", bg: "#FFEDD5", col: "#9A3412" },
+  interview1:          { label: "면접1", bg: "#F3E8FF", col: "#6B21A8" },
+  interview1_announce: { label: "1차발표", bg: "#EDE9FE", col: "#5B21B6" },
+  interview2:          { label: "면접2", bg: "#FCE7F3", col: "#9D174D" },
+  final:               { label: "최종발표", bg: "#DCFCE7", col: "#15803D" },
+  join:                { label: "입사", bg: "#CCFBF1", col: "#0F766E" },
 };
 
 const EVENT_LABELS_FULL: Record<EventType, string> = {
@@ -21,9 +29,12 @@ const EVENT_LABELS_FULL: Record<EventType, string> = {
   app_end: "서류마감",
   doc_announce: "서류발표",
   written: "필기시험",
+  written_announce: "필기발표",
   interview1: "면접1차",
+  interview1_announce: "1차면접 발표",
   interview2: "면접2차",
   final: "최종발표",
+  join: "입사 예정",
 };
 
 const FIELD_MAP: [keyof Job, EventType][] = [
@@ -31,9 +42,12 @@ const FIELD_MAP: [keyof Job, EventType][] = [
   ["application_end", "app_end"],
   ["doc_announcement_date", "doc_announce"],
   ["written_exam_date", "written"],
+  ["written_announcement_date", "written_announce"],
   ["interview_date", "interview1"],
+  ["interview_announcement_date", "interview1_announce"],
   ["interview_date_2", "interview2"],
   ["announcement_date", "final"],
+  ["join_date", "join"],
 ];
 
 // 더 이상 챙길 일정이 아닌 건(불합격·패스·마감 등)은 캘린더에서 제외
@@ -43,19 +57,23 @@ interface CalEvent {
   type: EventType;
   job: Job;
   time?: string | null;
+  estimated?: boolean; // 공고에 "N월 N주차"처럼만 적혀 있어 날짜가 확정 전인 일정
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-// 같은 날 여러 일정이 겹칠 때 보여줄 순서: 마감(놓치면 치명적) → 필기 → 면접 → 발표 → 접수시작
+// 같은 날 여러 일정이 겹칠 때 보여줄 순서: 마감(놓치면 치명적) → 필기 → 면접 → 발표 → 입사 → 접수시작
 const EVENT_PRIORITY: Record<EventType, number> = {
   app_end: 0,
   written: 1,
   interview1: 2,
   interview2: 3,
-  doc_announce: 4,
-  final: 5,
-  app_start: 6,
+  written_announce: 4,
+  interview1_announce: 5,
+  doc_announce: 6,
+  final: 7,
+  join: 8,
+  app_start: 9,
 };
 
 function ymKey(y: number, m: number, d: number) {
@@ -103,7 +121,7 @@ function DayDetail({
             >
               <div className="flex items-center gap-2">
                 <span className="font-semibold shrink-0 text-xs px-1.5 py-0.5 rounded bg-white/60">
-                  {EVENT_LABELS_FULL[ev.type]}{ev.time ? ` ${ev.time}` : ""}
+                  {EVENT_LABELS_FULL[ev.type]}{ev.time ? ` ${ev.time}` : ""}{ev.estimated ? " · 예정(확정 전)" : ""}
                 </span>
                 <span className="font-semibold break-words min-w-0">{ev.job.organization ?? "-"}</span>
               </div>
@@ -155,7 +173,12 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
         if (!v) continue;
         const key = v.slice(0, 10);
         const arr = map.get(key) ?? [];
-        arr.push({ type, job, time: type === "app_end" ? job.application_end_time : null });
+        arr.push({
+          type,
+          job,
+          time: type === "app_end" ? job.application_end_time : null,
+          estimated: isEstimated(job.estimated_fields, field as string),
+        });
         map.set(key, arr);
       }
     }
@@ -171,10 +194,10 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
     const keys = Array.from(eventsByDate.keys()).filter((k) => k >= todayKey).sort();
     for (const key of keys) {
       for (const ev of eventsByDate.get(key)!) {
-        // 필기시험과 서류마감(놓치면 안 되는 일정)만 보여줌. 서류발표·면접·최종발표는 캘린더/표에서 확인
-        if (ev.type !== "written" && ev.type !== "app_end") continue;
+        // 접수시작만 빼고 마감~입사까지 모든 단계의 일정을 보여줌
+        if (ev.type === "app_start") continue;
         out.push({ key, ev });
-        if (out.length >= 10) return out;
+        if (out.length >= 12) return out;
       }
     }
     return out;
@@ -292,7 +315,7 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                   {hasEvents && (
                     <div className="md:hidden flex flex-wrap gap-[3px] mt-1.5 px-0.5">
                       {events.slice(0, 6).map((ev, i) => (
-                        <span key={i} className="w-2 h-2 rounded-full inline-block" style={{ background: EVENT_DEFS[ev.type].col }} />
+                        <span key={i} className="w-2 h-2 rounded-full inline-block" style={{ background: EVENT_DEFS[ev.type].col, opacity: ev.estimated ? 0.4 : 1 }} />
                       ))}
                     </div>
                   )}
@@ -302,11 +325,11 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                     {events.slice(0, 2).map((ev, i) => (
                       <div
                         key={i}
-                        title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}${ev.time ? ` ${ev.time}` : ""}`}
+                        title={`${ev.job.organization ?? ""} · ${EVENT_LABELS_FULL[ev.type]}${ev.time ? ` ${ev.time}` : ""}${ev.estimated ? " (예정)" : ""}`}
                         className="flex items-center gap-0.5 truncate text-[11px] px-1 rounded leading-[16px]"
                         style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
                       >
-                        <span className="font-semibold shrink-0">{EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}</span>
+                        <span className="font-semibold shrink-0">{ev.estimated ? "~" : ""}{EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}</span>
                         <span className="truncate">{ev.job.organization ?? "-"}</span>
                       </div>
                     ))}
@@ -340,10 +363,10 @@ export default function ScheduleCalendar({ jobs }: { jobs: Job[] }) {
                             className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded"
                             style={{ background: EVENT_DEFS[ev.type].bg, color: EVENT_DEFS[ev.type].col }}
                           >
-                            {EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}
+                            {ev.estimated ? "~" : ""}{EVENT_DEFS[ev.type].label}{ev.time ? ` ${ev.time}` : ""}
                           </span>
                           <span className="truncate text-sm text-gray-800 min-w-0">{ev.job.organization ?? "-"}</span>
-                          <span className="ml-auto shrink-0 text-[11px] text-gray-400">{ddayLabel(key)}</span>
+                          <span className="ml-auto shrink-0 text-[11px] text-gray-400">{ev.estimated ? `예정 ${ddayLabel(key)}` : ddayLabel(key)}</span>
                         </div>
                         {ev.type === "written" && ev.job.written_exam_subjects && (
                           <p className="text-[11px] leading-snug mt-1 pl-[70px]" style={{ color: "#633806" }}>
