@@ -16,7 +16,6 @@ export type JobStatus =
   | "interview_pass"  // 1차 면접합격
   | "interview_fail"  // 1차 면접불합격
   | "interview2_wait" // 2차 면접대기
-  | "interview2_fail" // 2차 면접불합격
   // 최종
   | "final_pass"     // 최종합격
   // 기타
@@ -35,9 +34,8 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   written_skip:   "필기패스(미응시)",
   interview_wait: "1차면접대기",
   interview_pass: "1차면접합격",
-  interview_fail: "1차면접불합격",
+  interview_fail: "면접불합격",
   interview2_wait: "2차면접대기",
-  interview2_fail: "2차면접불합격",
   final_pass:     "최종합격",
   withdrawn:      "패스(미지원)",
   expired:        "마감(미지원)",
@@ -61,7 +59,6 @@ export const STATUS_COLORS: Record<JobStatus, string> = {
   interview_pass: UNIFORM_STATUS_COLOR,
   interview_fail: UNIFORM_STATUS_COLOR,
   interview2_wait: UNIFORM_STATUS_COLOR,
-  interview2_fail: UNIFORM_STATUS_COLOR,
   final_pass:     UNIFORM_STATUS_COLOR,
   withdrawn:      UNIFORM_STATUS_COLOR,
   expired:        UNIFORM_STATUS_COLOR,

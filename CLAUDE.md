@@ -239,9 +239,8 @@ written_fail    필기불합격
 written_skip    필기패스(미응시)
 interview_wait  1차면접대기
 interview_pass  1차면접합격
-interview_fail  1차면접불합격
+interview_fail  면접불합격 (1차·2차 공통)
 interview2_wait 2차면접대기
-interview2_fail 2차면접불합격
 final_pass      최종합격
 withdrawn       패스(미지원)
 expired         마감(미지원)

@@ -51,7 +51,7 @@ const FIELD_MAP: [keyof Job, EventType][] = [
 ];
 
 // 더 이상 챙길 일정이 아닌 건(불합격·패스·마감 등)은 캘린더에서 제외
-const EXCLUDED_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "interview2_fail", "withdrawn", "expired", "ineligible"];
+const EXCLUDED_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "withdrawn", "expired", "ineligible"];
 
 interface CalEvent {
   type: EventType;
