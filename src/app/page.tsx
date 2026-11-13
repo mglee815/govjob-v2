@@ -23,27 +23,27 @@ const KPI_DEFS: {
   {
     key: "submitted",
     label: "서류제출 (누적)",
-    statuses: ["applied", "doc_fail", "written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["applied", "doc_fail", "written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "interview2_wait", "interview2_pass", "interview2_fail", "final_pass"],
     bg: "bg-indigo-50", border: "border-indigo-200 hover:border-indigo-400", num: "text-indigo-600",
   },
   {
     key: "doc_passed",
     label: "서류합격 (누적)",
-    statuses: ["written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["written_wait", "written_pass", "written_fail", "written_skip", "interview_wait", "interview_pass", "interview_fail", "interview2_wait", "interview2_pass", "interview2_fail", "final_pass"],
     failStatuses: ["doc_fail"],
     bg: "bg-green-50", border: "border-green-200 hover:border-green-400", num: "text-green-600",
   },
   {
     key: "written_passed",
     label: "필기합격 (누적)",
-    statuses: ["written_pass", "interview_wait", "interview_pass", "interview_fail", "final_pass"],
+    statuses: ["written_pass", "interview_wait", "interview_pass", "interview_fail", "interview2_wait", "interview2_pass", "interview2_fail", "final_pass"],
     failStatuses: ["written_fail"],
     bg: "bg-orange-50", border: "border-orange-200 hover:border-orange-400", num: "text-orange-600",
   },
   {
     key: "interview_passed",
-    label: "면접합격 (누적)",
-    statuses: ["interview_pass", "final_pass"],
+    label: "1차면접합격 (누적)",
+    statuses: ["interview_pass", "interview2_wait", "interview2_pass", "interview2_fail", "final_pass"],
     failStatuses: ["interview_fail"],
     bg: "bg-purple-50", border: "border-purple-200 hover:border-purple-400", num: "text-purple-600",
   },
@@ -52,8 +52,8 @@ const KPI_DEFS: {
 // "지원가능" 집계에서 제외할 상태 (이미 지원했거나 더 이상 지원 대상이 아닌 건)
 const NOT_APPLICABLE_STATUSES: JobStatus[] = [
   "applied", "doc_fail", "written_wait", "written_pass", "written_fail",
-  "interview_wait", "interview_pass", "interview_fail", "final_pass", "withdrawn", "expired",
-  "written_skip", "ineligible",
+  "interview_wait", "interview_pass", "interview_fail", "interview2_wait", "interview2_pass", "interview2_fail",
+  "final_pass", "withdrawn", "expired", "written_skip", "ineligible",
 ];
 
 const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
@@ -66,9 +66,12 @@ const FILTER_OPTIONS: { label: string; value: JobStatus | "all" }[] = [
   { label: "필기합격",    value: "written_pass" },
   { label: "필기불합격",  value: "written_fail" },
   { label: "필기패스",    value: "written_skip" },
-  { label: "면접대기",    value: "interview_wait" },
-  { label: "면접합격",    value: "interview_pass" },
-  { label: "면접불합격",  value: "interview_fail" },
+  { label: "1차면접대기",   value: "interview_wait" },
+  { label: "1차면접합격",   value: "interview_pass" },
+  { label: "1차면접불합격", value: "interview_fail" },
+  { label: "2차면접대기",   value: "interview2_wait" },
+  { label: "2차면접합격",   value: "interview2_pass" },
+  { label: "2차면접불합격", value: "interview2_fail" },
   { label: "최종합격",    value: "final_pass" },
   { label: "패스(미지원)", value: "withdrawn" },
   { label: "마감(미지원)", value: "expired" },

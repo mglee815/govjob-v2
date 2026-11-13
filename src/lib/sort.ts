@@ -51,7 +51,7 @@ export const SCHEDULE_SORT_FIELDS = new Set<SortField>([
   "join_date",
 ]);
 
-const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "withdrawn", "expired", "ineligible"];
+const INACTIVE_STATUSES: JobStatus[] = ["doc_fail", "written_fail", "written_skip", "interview_fail", "interview2_fail", "withdrawn", "expired", "ineligible"];
 
 function dateValue(job: Job, field: SortField): number | null {
   if (field === "created_at") return new Date(job.created_at).getTime();
