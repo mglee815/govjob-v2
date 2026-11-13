@@ -54,7 +54,7 @@ const COLORS = {
 const GROUP_DEFS: { key: string; label: string; statuses: JobStatus[]; accent: string }[] = [
   { key: "available",      label: "접수중",              statuses: ["available"], accent: "#2B6CB0" },
   { key: "in_progress",    label: "서류제출 · 필기응시",   statuses: ["applied", "written_wait"], accent: "#4338CA" },
-  { key: "passing",        label: "합격 진행중",          statuses: ["written_pass", "interview_wait", "interview_pass", "interview2_wait", "interview2_pass", "final_pass"], accent: "#15803D" },
+  { key: "passing",        label: "합격 진행중",          statuses: ["written_pass", "interview_wait", "interview_pass", "interview2_wait", "final_pass"], accent: "#15803D" },
   { key: "monitoring",     label: "모니터링",            statuses: ["monitoring"], accent: "#4A5568" },
   { key: "doc_fail",       label: "서류불합격",           statuses: ["doc_fail"], accent: "#A32D2D" },
   { key: "written_fail",   label: "필기불합격",           statuses: ["written_fail"], accent: "#BE185D" },
@@ -151,9 +151,6 @@ function nextMilestone(job: Job): string | null {
   }
   if (s === "interview_pass" || s === "interview2_wait") {
     if (i2) return "면접2차";
-    if (a)  return "최종발표";
-  }
-  if (s === "interview2_pass") {
     if (a)  return "최종발표";
   }
   if (s === "monitoring" || s === "available") {

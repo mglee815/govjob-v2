@@ -241,7 +241,6 @@ interview_wait  1차면접대기
 interview_pass  1차면접합격
 interview_fail  1차면접불합격
 interview2_wait 2차면접대기
-interview2_pass 2차면접합격
 interview2_fail 2차면접불합격
 final_pass      최종합격
 withdrawn       패스(미지원)

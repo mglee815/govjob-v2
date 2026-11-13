@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS jobs (
       'applied', 'doc_fail',
       'written_wait', 'written_pass', 'written_fail', 'written_skip',
       'interview_wait', 'interview_pass', 'interview_fail',
-      'interview2_wait', 'interview2_pass', 'interview2_fail',
+      'interview2_wait', 'interview2_fail',
       'final_pass', 'withdrawn', 'expired', 'ineligible'
     )
   ),
